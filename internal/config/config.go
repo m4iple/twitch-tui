@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -57,6 +58,10 @@ type Config struct {
 
 func Load() Config {
 	cfg := defaultConfig()
+	configPath, err := getConfigPath()
+	if err != nil {
+		return cfg
+	}
 	if err := loadConfigFile(configPath, &cfg); err != nil {
 		return cfg
 	}
@@ -121,6 +126,11 @@ func defaultStyle() Style {
 }
 
 func UpdateTokens(newOauth, newRefresh string) error {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
 	cfg, err := readConfigFile(configPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -143,6 +153,11 @@ func UpdateTokens(newOauth, newRefresh string) error {
 }
 
 func UpdateLogin(user, oauth string) error {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
 	cfg, err := readConfigFile(configPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -165,6 +180,11 @@ func UpdateLogin(user, oauth string) error {
 }
 
 func UpdateConfig(cfg Config) error {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
 	if cfg.Twitch.RefreshApi == "" {
 		cfg.Twitch.RefreshApi = defaultRefreshAPI
 	}
@@ -176,8 +196,25 @@ func UpdateConfig(cfg Config) error {
 	return nil
 }
 
-const configPath = "config.toml"
 const defaultRefreshAPI = "https://twitchtokengenerator.com/api/refresh/"
+const configFileName = "config.toml"
+const appDir = "twitch-tui"
+
+func getConfigPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get config directory: %v", err)
+	}
+
+	appConfigDir := filepath.Join(configDir, appDir)
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %v", err)
+	}
+
+	return filepath.Join(appConfigDir, configFileName), nil
+}
 
 func loadConfigFile(path string, cfg *Config) error {
 	file, err := os.Open(path)
