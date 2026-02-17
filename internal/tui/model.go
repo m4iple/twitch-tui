@@ -273,7 +273,7 @@ func formatSystemMessage(content string) twitch.ChatMessage {
 }
 
 func (m *Model) updateViewport(msg tea.WindowSizeMsg) {
-	headerHeight := 2
+	headerHeight := 3
 	footerHeight := 1
 	vpHeight := msg.Height - headerHeight - footerHeight
 

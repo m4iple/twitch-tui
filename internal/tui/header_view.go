@@ -36,5 +36,5 @@ func (m Model) headerView() string {
 	}
 	separator := styles.Maroon.Render(strings.Repeat("─", remainingSpace))
 
-	return dataLine + separator
+	return dataLine + separator + "\n"
 }
