@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -13,15 +14,16 @@ import (
 )
 
 type ChatMessage struct {
-	Time        time.Time
-	User        string
-	Flare       string // SYSTEM, ME, MOD, VIP, ...
-	Content     string
-	TaggedUser  string // when a massage has a @<user>
-	Highlight   string // color of the message
-	NameColor   string // color of the name in not there use a random
-	TaggedColor string // color of the @<user> string
-	Bits        int
+	Time         time.Time
+	User         string
+	Flare        string            // SYSTEM, ME, MOD, VIP, ...
+	Content      string            // message text
+	TaggedUsers  []string          // all @<user> mentions in the message
+	Highlight    string            // color of the message
+	Prepend      string            // label shown before the message content (e.g. "- Cheer100 -")
+	NameColor    string            // color of the username
+	TaggedColors map[string]string // color per @<user>
+	Bits         int
 }
 
 type Service struct {
@@ -35,6 +37,27 @@ type Service struct {
 	token          string
 	refreshToken   string
 	api            string
+	theme          config.Theme
+}
+
+func (t *Service) randomColor() string {
+	palette := []string{
+		t.theme.Lavender,
+		t.theme.Blue,
+		t.theme.Sapphire,
+		t.theme.Sky,
+		t.theme.Teal,
+		t.theme.Green,
+		t.theme.Yellow,
+		t.theme.Peach,
+		t.theme.Maroon,
+		t.theme.Red,
+		t.theme.Mauve,
+		t.theme.Pink,
+		t.theme.Flamingo,
+		t.theme.Rosewater,
+	}
+	return palette[rand.Intn(len(palette))]
 }
 
 func New(cfg config.Config) *Service {
@@ -54,6 +77,7 @@ func New(cfg config.Config) *Service {
 		token:          cfg.Twitch.Oauth,
 		refreshToken:   cfg.Twitch.Refresh,
 		api:            cfg.Twitch.RefreshApi,
+		theme:          cfg.Theme,
 	}
 
 	if s.token != "" {
@@ -71,6 +95,12 @@ func (t *Service) Connect() error {
 func (t *Service) startSession() {
 	t.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		t.MsgChan <- t.formatMessage(message)
+	})
+
+	t.client.OnUserNoticeMessage(func(message twitch.UserNoticeMessage) {
+		if msg, ok := t.formatUserNotice(message); ok {
+			t.MsgChan <- msg
+		}
 	})
 
 	t.client.Join(t.CurrentChannel)
@@ -204,36 +234,88 @@ func (t *Service) refresh() error {
 	return nil
 }
 
+func (s *Service) formatUserNotice(msg twitch.UserNoticeMessage) (ChatMessage, bool) {
+	switch msg.MsgID {
+	case "sub", "resub", "subgift", "anonsubgift", "submysterygift", "giftpaidupgrade", "anongiftpaidupgrade",
+		"shoutout-received", "shoutout-sent":
+		nameColor := msg.User.Color
+		if nameColor == "" {
+			nameColor = s.randomColor()
+		}
+		content := msg.SystemMsg
+		var highlight string
+		if msg.Message != "" {
+			content += ": " + msg.Message
+			highlight = s.randomColor()
+		}
+		return ChatMessage{
+			Time:      msg.Time,
+			User:      "SYSTEM",
+			Flare:     "SYSTEM",
+			Content:   content,
+			NameColor: nameColor,
+			Highlight: highlight,
+			Bits:      0,
+		}, true
+	default:
+		return ChatMessage{}, false
+	}
+}
+
 func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 	flare := ""
 	_, isMod := msg.User.Badges["moderator"]
 	_, isBroadcaster := msg.User.Badges["broadcaster"]
 	_, isVip := msg.User.Badges["vip"]
 
-	if isBroadcaster || isMod {
+	if msg.CustomRewardID != "" {
+		flare = "REDEEM"
+	} else if isBroadcaster || isMod {
 		flare = "MOD"
 	} else if isVip {
 		flare = "VIP"
 	}
 
-	var taggedUser string
-	words := strings.Fields(msg.Message)
-	for _, word := range words {
+	var taggedUsers []string
+	taggedColors := make(map[string]string)
+	seen := make(map[string]bool)
+	for _, word := range strings.Fields(msg.Message) {
 		if strings.HasPrefix(word, "@") {
-			taggedUser = strings.TrimLeft(word, "@")
-			taggedUser = strings.TrimRight(taggedUser, ",.:;!?")
-			break
+			user := strings.TrimRight(strings.TrimPrefix(word, "@"), ",.:;!?")
+			if user != "" && !seen[user] {
+				seen[user] = true
+				taggedUsers = append(taggedUsers, user)
+				taggedColors[user] = s.randomColor()
+			}
 		}
 	}
 
+	nameColor := msg.User.Color
+	if nameColor == "" {
+		nameColor = s.randomColor()
+	}
+
+	var highlight string
+	var prepend string
+	if msg.Bits > 0 {
+		prepend = fmt.Sprintf("- Cheer%d -", msg.Bits)
+		highlight = s.randomColor()
+	} else if msg.FirstMessage {
+		prepend = "- First -"
+	} else if msg.Tags["msg-id"] == "highlighted-message" {
+		highlight = s.randomColor()
+	}
+
 	return ChatMessage{
-		Time:        msg.Time,
-		User:        msg.User.Name,
-		Content:     msg.Message,
-		Flare:       flare,
-		NameColor:   msg.User.Color,
-		TaggedUser:  taggedUser,
-		TaggedColor: "",
-		Bits:        msg.Bits,
+		Time:         msg.Time,
+		User:         msg.User.Name,
+		Content:      msg.Message,
+		Flare:        flare,
+		NameColor:    nameColor,
+		TaggedUsers:  taggedUsers,
+		TaggedColors: taggedColors,
+		Bits:         msg.Bits,
+		Highlight:    highlight,
+		Prepend:      prepend,
 	}
 }

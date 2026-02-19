@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"twitch-tui/internal/twitch"
@@ -26,6 +25,8 @@ func (m Model) formatMessage(msg twitch.ChatMessage) string {
 			flareStyle = styles.Yellow
 		case "TUI":
 			flareStyle = styles.Blue
+		case "REDEEM":
+			flareStyle = styles.Teal
 		}
 		flarePart = bracket + flareStyle.Render(msg.Flare) + closeBracket + " "
 	}
@@ -33,46 +34,40 @@ func (m Model) formatMessage(msg twitch.ChatMessage) string {
 	var userStr string
 	if msg.Flare == "SYSTEM" {
 		userStr = styles.Yellow.Render(msg.User)
-	} else if msg.NameColor != "" {
-		userStr = lipgloss.NewStyle().Foreground(lipgloss.Color(msg.NameColor)).Render(msg.User)
 	} else {
-		userStr = m.randomFallbackStyle(styles).Render(msg.User)
+		userStr = lipgloss.NewStyle().Foreground(lipgloss.Color(msg.NameColor)).Render(msg.User)
 	}
 
 	contentPart := msg.Content
-	if msg.TaggedUser != "" {
-		taggedPattern := "@" + msg.TaggedUser
-		var taggedStyle lipgloss.Style
-		if msg.TaggedColor != "" {
-			taggedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(msg.TaggedColor))
-		} else {
-			taggedStyle = m.randomFallbackStyle(styles)
-		}
+	for _, taggedUser := range msg.TaggedUsers {
+		taggedPattern := "@" + taggedUser
+		taggedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.TaggedColors[taggedUser]))
 		contentPart = strings.ReplaceAll(contentPart, taggedPattern, taggedStyle.Render(taggedPattern))
 	}
 
-	var bitsPart string
-	if msg.Bits > 0 {
-		bitsPart = " " + styles.Peach.Render(fmt.Sprintf("Cheer%d", msg.Bits))
+	prependPart := ""
+	if msg.Prepend != "" {
+		prependPart = styles.Red.Render(msg.Prepend + " ")
 	}
 
-	prefixLen := lipgloss.Width(timePart) + lipgloss.Width(flarePart) + lipgloss.Width(userStr) + 2
-	availableWidth := m.width - prefixLen - lipgloss.Width(bitsPart)
-
-	if availableWidth < 20 {
-		availableWidth = 20
-	}
+	prefixLen := lipgloss.Width(timePart) + lipgloss.Width(flarePart) + lipgloss.Width(userStr) + lipgloss.Width(prependPart) + 2
+	availableWidth := max(m.width-prefixLen, 20)
 
 	wrappedContent := m.wrapText(contentPart, availableWidth)
 	lines := strings.Split(wrappedContent, "\n")
 
+	contentStyle := styles.Text
+	if msg.Highlight != "" {
+		contentStyle = lipgloss.NewStyle().Background(lipgloss.Color(msg.Highlight)).Foreground(lipgloss.Color(m.config.Theme.Base))
+	}
+
 	var result strings.Builder
 	for i, line := range lines {
 		if i == 0 {
-			result.WriteString(timePart + " " + flarePart + userStr + styles.Text.Render(": ") + styles.Text.Render(line) + bitsPart + "\n")
+			result.WriteString(timePart + " " + flarePart + userStr + styles.Text.Render(": ") + prependPart + contentStyle.Render(line) + "\n")
 		} else {
 			indent := strings.Repeat(" ", prefixLen+1)
-			result.WriteString(indent + styles.Text.Render(line) + "\n")
+			result.WriteString(indent + contentStyle.Render(line) + "\n")
 		}
 	}
 

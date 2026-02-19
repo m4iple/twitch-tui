@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"math/rand"
 	"strings"
 	"time"
 	"twitch-tui/internal/config"
@@ -63,7 +62,6 @@ type Model struct {
 	height    int
 	ready     bool
 	filter    string
-	rng       *rand.Rand
 }
 
 func New(cfg config.Config) Model {
@@ -85,7 +83,6 @@ func New(cfg config.Config) Model {
 		config:    cfg,
 		textInput: ti,
 		twitch:    t,
-		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -295,8 +292,6 @@ func (m *Model) updateViewport(msg tea.WindowSizeMsg) {
 func (m *Model) sendMsgCmd(content string) tea.Cmd {
 	return func() tea.Msg {
 		if strings.HasPrefix(content, ":") {
-			// TODO: Handle internal TUI commands
-			// e.g., :q to quit
 			return nil
 		} else {
 			m.twitch.Say(content)
@@ -309,26 +304,6 @@ func (m *Model) sendMsgCmd(content string) tea.Cmd {
 			}
 		}
 	}
-}
-
-func (m Model) randomFallbackStyle(styles ThemeStyles) lipgloss.Style {
-	palette := []lipgloss.Style{
-		styles.Blue,
-		styles.Green,
-		styles.Teal,
-		styles.Sky,
-		styles.Lavender,
-		styles.Pink,
-		styles.Peach,
-		styles.Yellow,
-		styles.Mauve,
-	}
-
-	if len(palette) == 0 || m.rng == nil {
-		return styles.Text
-	}
-
-	return palette[m.rng.Intn(len(palette))]
 }
 
 func (m Model) wrapText(text string, width int) string {
