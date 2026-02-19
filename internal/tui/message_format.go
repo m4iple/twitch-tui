@@ -71,7 +71,7 @@ func (m Model) formatMessage(msg twitch.ChatMessage) string {
 		if i == 0 {
 			result.WriteString(timePart + " " + flarePart + userStr + styles.Text.Render(": ") + styles.Text.Render(line) + bitsPart + "\n")
 		} else {
-			indent := strings.Repeat(" ", prefixLen)
+			indent := strings.Repeat(" ", prefixLen+1)
 			result.WriteString(indent + styles.Text.Render(line) + "\n")
 		}
 	}
