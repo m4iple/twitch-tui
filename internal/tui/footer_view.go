@@ -13,7 +13,6 @@ func (m Model) footerView() string {
 	bracket := styles.Maroon.Render("[")
 	closeBracket := styles.Maroon.Render("]")
 
-	// Dynamic label based on state
 	var inputLabel string
 	switch m.state {
 	case stateInputChannel:
@@ -32,7 +31,6 @@ func (m Model) footerView() string {
 	dash := styles.Maroon.Render("─")
 	infoLine := chatPart + dash + countPart
 
-	// Calculate visible width using lipgloss.Width which handles ANSI codes
 	infoLineWidth := lipgloss.Width(infoLine)
 	remainingSpace := m.width - infoLineWidth
 	if remainingSpace < 0 {

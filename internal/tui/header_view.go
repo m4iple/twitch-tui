@@ -26,15 +26,13 @@ func (m Model) headerView() string {
 	dash := styles.Maroon.Render("─")
 	dataLine := timePart + dash + channelPart + dash + userPart + dash + findPart
 
-	// Calculate the visible width using lipgloss.Width which handles ANSI codes
 	dataLineWidth := lipgloss.Width(dataLine)
 
-	// Fill remaining space with dashes
 	remainingSpace := m.width - dataLineWidth
 	if remainingSpace < 0 {
 		remainingSpace = 0
 	}
 	separator := styles.Maroon.Render(strings.Repeat("─", remainingSpace))
 
-	return dataLine + separator
+	return dataLine + separator + "\n"
 }
