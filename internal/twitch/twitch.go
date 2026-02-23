@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 	"twitch-tui/internal/config"
-	"twitch-tui/internal/extentions"
+	"twitch-tui/internal/extentions/api"
 
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -308,7 +308,7 @@ func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 		highlight = s.randomColor()
 		if s.bitsApi.Enable && s.bitsApi.Endpoint != "" {
 			if msg.Bits >= s.bitsApi.BitsAmount {
-				extentions.SendBitsNotification(s.bitsApi.Endpoint, msg.User.Name, msg.Message, nameColor)
+				api.SendBitsNotification(s.bitsApi.Endpoint, msg.User.Name, msg.Message, nameColor)
 			}
 		}
 	} else if msg.FirstMessage {
