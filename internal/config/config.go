@@ -15,6 +15,9 @@ type Twitch struct {
 	Oauth      string `toml:"oauth"`
 	Refresh    string `toml:"refresh"`
 	RefreshApi string `toml:"refresh_api"`
+	UserID     string `toml:"user_id"`
+	ChannelID  string `toml:"channel_id"`
+	ClientID   string `toml:"client_id"`
 }
 
 type Theme struct {
@@ -92,6 +95,9 @@ func defaultTwitch() Twitch {
 		Oauth:      "",
 		Refresh:    "",
 		RefreshApi: defaultRefreshAPI,
+		UserID:     "",
+		ChannelID:  "",
+		ClientID:   "",
 	}
 }
 

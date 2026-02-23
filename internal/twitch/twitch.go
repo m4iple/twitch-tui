@@ -33,12 +33,14 @@ type Service struct {
 	SysChan chan string
 
 	CurrentChannel string
-	ChanelId       string
 	User           string
 	Authenticated  bool
 	token          string
 	refreshToken   string
 	api            string
+	UserID         string
+	ChannelID      string
+	clientID       string
 
 	theme   config.Theme
 	bitsApi config.BitsApi
@@ -64,6 +66,94 @@ func (t *Service) randomColor() string {
 	return palette[rand.Intn(len(palette))]
 }
 
+func (t *Service) FetchUserID() error {
+	if t.User == "" {
+		return errors.New("username is required to fetch user ID")
+	}
+
+	url := fmt.Sprintf("https://api.twitch.tv/helix/users?login=%s", t.User)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Client-ID", t.clientID)
+	if t.token != "" {
+		req.Header.Set("Authorization", "Bearer "+t.token)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to fetch user ID: %s", resp.Status)
+	}
+
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if len(result.Data) == 0 {
+		return errors.New("no user found")
+	}
+
+	t.UserID = result.Data[0].ID
+	return nil
+}
+
+func (t *Service) FetchChannelID() error {
+	if t.CurrentChannel == "" {
+		return errors.New("channel name is required to fetch channel ID")
+	}
+
+	url := fmt.Sprintf("https://api.twitch.tv/helix/users?login=%s", t.CurrentChannel)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Client-ID", t.clientID)
+	if t.token != "" {
+		req.Header.Set("Authorization", "Bearer "+t.token)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to fetch channel ID: %s", resp.Status)
+	}
+
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if len(result.Data) == 0 {
+		return errors.New("no channel found")
+	}
+
+	t.ChannelID = result.Data[0].ID
+	return nil
+}
+
 func New(cfg config.Config) *Service {
 	msgChan := make(chan ChatMessage)
 	sysChan := make(chan string)
@@ -81,6 +171,9 @@ func New(cfg config.Config) *Service {
 		token:          cfg.Twitch.Oauth,
 		refreshToken:   cfg.Twitch.Refresh,
 		api:            cfg.Twitch.RefreshApi,
+		UserID:         cfg.Twitch.UserID,
+		ChannelID:      cfg.Twitch.ChannelID,
+		clientID:       cfg.Twitch.ClientID,
 
 		theme:   cfg.Theme,
 		bitsApi: cfg.BitsApi,
@@ -127,7 +220,11 @@ func (t *Service) startSession() {
 		if err != nil {
 			t.SysChan <- "Connection error: " + err.Error()
 		}
-		t.SysChan <- "Joined channel #" + t.CurrentChannel
+		if err := t.FetchChannelID(); err != nil {
+			t.SysChan <- "Joined channel #" + t.CurrentChannel
+		} else {
+			t.SysChan <- "Joined channel #" + t.CurrentChannel + " (ID: " + t.ChannelID + ")"
+		}
 	}()
 }
 
@@ -140,7 +237,11 @@ func (t *Service) SwitchChannel(newName string) error {
 	t.client.Depart(t.CurrentChannel)
 	t.CurrentChannel = newName
 	t.client.Join(t.CurrentChannel)
-	t.SysChan <- "Switched to channel: " + newName
+	if err := t.FetchChannelID(); err != nil {
+		t.SysChan <- "Switched to channel: " + newName
+	} else {
+		t.SysChan <- "Switched to channel: " + newName + " (ID: " + t.ChannelID + ")"
+	}
 
 	return nil
 }
