@@ -50,10 +50,17 @@ type Style struct {
 	DateFormat string `toml:"date_format"`
 }
 
+type BitsApi struct {
+	Enable     bool   `toml:"enable"`
+	BitsAmount int    `toml:"bits_amount"`
+	Endpoint   string `toml:"endpoint"`
+}
+
 type Config struct {
-	Twitch Twitch `toml:"twitch"`
-	Theme  Theme  `toml:"theme"`
-	Style  Style  `toml:"style"`
+	Twitch  Twitch  `toml:"twitch"`
+	Theme   Theme   `toml:"theme"`
+	Style   Style   `toml:"style"`
+	BitsApi BitsApi `toml:"bits_api"`
 }
 
 func Load() Config {
@@ -71,9 +78,10 @@ func Load() Config {
 
 func defaultConfig() Config {
 	return Config{
-		Twitch: defaultTwitch(),
-		Theme:  defaultTheme(),
-		Style:  defaultStyle(),
+		Twitch:  defaultTwitch(),
+		Theme:   defaultTheme(),
+		Style:   defaultStyle(),
+		BitsApi: defaultBitsApi(),
 	}
 }
 
@@ -122,6 +130,14 @@ func defaultTheme() Theme {
 func defaultStyle() Style {
 	return Style{
 		DateFormat: "15:04:05",
+	}
+}
+
+func defaultBitsApi() BitsApi {
+	return BitsApi{
+		Enable:     false,
+		BitsAmount: 0,
+		Endpoint:   "",
 	}
 }
 

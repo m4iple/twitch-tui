@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"twitch-tui/internal/config"
+	"twitch-tui/internal/extentions"
 
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -32,12 +33,15 @@ type Service struct {
 	SysChan chan string
 
 	CurrentChannel string
+	ChanelId       string
 	User           string
 	Authenticated  bool
 	token          string
 	refreshToken   string
 	api            string
-	theme          config.Theme
+
+	theme   config.Theme
+	bitsApi config.BitsApi
 }
 
 func (t *Service) randomColor() string {
@@ -77,7 +81,9 @@ func New(cfg config.Config) *Service {
 		token:          cfg.Twitch.Oauth,
 		refreshToken:   cfg.Twitch.Refresh,
 		api:            cfg.Twitch.RefreshApi,
-		theme:          cfg.Theme,
+
+		theme:   cfg.Theme,
+		bitsApi: cfg.BitsApi,
 	}
 
 	if s.token != "" {
@@ -300,6 +306,11 @@ func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 	if msg.Bits > 0 {
 		prepend = fmt.Sprintf("- Cheer%d -", msg.Bits)
 		highlight = s.randomColor()
+		if s.bitsApi.Enable && s.bitsApi.Endpoint != "" {
+			if msg.Bits >= s.bitsApi.BitsAmount {
+				extentions.SendBitsNotification(s.bitsApi.Endpoint, msg.User.Name, msg.Message, nameColor)
+			}
+		}
 	} else if msg.FirstMessage {
 		prepend = "- First -"
 	} else if msg.Tags["msg-id"] == "highlighted-message" {
