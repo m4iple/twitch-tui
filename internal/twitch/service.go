@@ -2,6 +2,7 @@ package twitch
 
 import (
 	"math/rand"
+	"os"
 	"time"
 	"twitch-tui/internal/config"
 
@@ -34,10 +35,13 @@ type Service struct {
 	api            string
 	UserID         string
 	ChannelID      string
+	ClientID       string
 
 	theme         config.Theme
 	bitsApi       config.BitsApi
 	EmotesEnabled bool
+
+	logFile *os.File
 }
 
 func New(cfg config.Config) *Service {
@@ -53,6 +57,7 @@ func New(cfg config.Config) *Service {
 		api:            cfg.Twitch.RefreshApi,
 		UserID:         cfg.Twitch.UserID,
 		ChannelID:      cfg.Twitch.ChannelID,
+		ClientID:       cfg.Twitch.ClientID,
 
 		theme:         cfg.Theme,
 		bitsApi:       cfg.Api.Bits,
@@ -62,6 +67,8 @@ func New(cfg config.Config) *Service {
 	if s.token != "" {
 		s.login()
 	}
+
+	s.initLogger(cfg)
 
 	return s
 }

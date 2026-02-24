@@ -11,7 +11,7 @@ import (
 )
 
 func (t *Service) FetchUserID() error {
-	id, login, _, err := t.fetchOAuthIdentity()
+	id, login, clientID, err := t.fetchOAuthIdentity()
 	if err != nil {
 		return err
 	}
@@ -20,6 +20,11 @@ func (t *Service) FetchUserID() error {
 
 	if t.User == "" && login != "" {
 		t.User = login
+	}
+
+	if clientID != "" && t.ClientID != clientID {
+		t.ClientID = clientID
+		_ = config.UpdateClientID(clientID)
 	}
 
 	return nil
@@ -40,6 +45,11 @@ func (t *Service) FetchChannelID() error {
 	}
 	if t.User == "" && login != "" {
 		t.User = login
+	}
+
+	if clientID != "" && t.ClientID != clientID {
+		t.ClientID = clientID
+		_ = config.UpdateClientID(clientID)
 	}
 
 	id, err := t.fetchHelixUserIDByLogin(t.CurrentChannel, clientID)

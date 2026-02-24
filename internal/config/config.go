@@ -17,6 +17,7 @@ type Twitch struct {
 	RefreshApi string `toml:"refresh_api"`
 	UserID     string `toml:"user_id"`
 	ChannelID  string `toml:"channel_id"`
+	ClientID   string `toml:"client_id"`
 }
 
 type Theme struct {
@@ -66,12 +67,18 @@ type Emotes struct {
 	Enable bool `toml:"enable"`
 }
 
+type Log struct {
+	Enable bool   `toml:"enable"`
+	Path   string `toml:"path"`
+}
+
 type Config struct {
 	Twitch Twitch `toml:"twitch"`
 	Theme  Theme  `toml:"theme"`
 	Style  Style  `toml:"style"`
 	Api    Api    `toml:"api"`
 	Emotes Emotes `toml:"emotes"`
+	Log    Log    `toml:"log"`
 }
 
 func Load() Config {
@@ -94,6 +101,7 @@ func defaultConfig() Config {
 		Style:  defaultStyle(),
 		Api:    defaultApi(),
 		Emotes: defaultEmotes(),
+		Log:    defaultLog(),
 	}
 }
 
@@ -106,6 +114,7 @@ func defaultTwitch() Twitch {
 		RefreshApi: defaultRefreshAPI,
 		UserID:     "",
 		ChannelID:  "",
+		ClientID:   "",
 	}
 }
 
@@ -160,6 +169,13 @@ func defaultApi() Api {
 func defaultEmotes() Emotes {
 	return Emotes{
 		Enable: false,
+	}
+}
+
+func defaultLog() Log {
+	return Log{
+		Enable: false,
+		Path:   "",
 	}
 }
 
@@ -232,6 +248,32 @@ func UpdateUserID(userID string) error {
 	}
 
 	cfg.Twitch.UserID = userID
+	if cfg.Twitch.RefreshApi == "" {
+		cfg.Twitch.RefreshApi = defaultRefreshAPI
+	}
+
+	if err := writeConfigFile(configPath, cfg); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	return nil
+}
+
+func UpdateClientID(clientID string) error {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := readConfigFile(configPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read config file: %v", err)
+		}
+		cfg = defaultConfig()
+	}
+
+	cfg.Twitch.ClientID = clientID
 	if cfg.Twitch.RefreshApi == "" {
 		cfg.Twitch.RefreshApi = defaultRefreshAPI
 	}
