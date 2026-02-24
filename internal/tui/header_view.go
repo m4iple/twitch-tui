@@ -15,8 +15,16 @@ func (m Model) headerView() string {
 	closeBracket := styles.Maroon.Render("]")
 
 	timePart := bracket + styles.Maroon.Render(" Time: ") + styles.Subtext1.Render(time.Now().Format(m.config.Style.DateFormat)) + styles.Maroon.Render(" ") + closeBracket
-	channelPart := bracket + styles.Maroon.Render(" Channel: ") + styles.Green.Render(m.twitch.CurrentChannel) + styles.Maroon.Render(" ") + closeBracket
-	userPart := bracket + styles.Maroon.Render(" User: ") + styles.Yellow.Render(m.config.Twitch.User) + styles.Maroon.Render(" ") + closeBracket
+	channelLabel := m.twitch.CurrentChannel
+	if m.twitch.ChannelID != "" {
+		channelLabel = fmt.Sprintf("%s (%s)", channelLabel, m.twitch.ChannelID)
+	}
+	userLabel := m.twitch.User
+	if m.twitch.UserID != "" {
+		userLabel = fmt.Sprintf("%s (%s)", userLabel, m.twitch.UserID)
+	}
+	channelPart := bracket + styles.Maroon.Render(" Channel: ") + styles.Green.Render(channelLabel) + styles.Maroon.Render(" ") + closeBracket
+	userPart := bracket + styles.Maroon.Render(" User: ") + styles.Yellow.Render(userLabel) + styles.Maroon.Render(" ") + closeBracket
 	findLabel := "Find"
 	if m.filter != "" {
 		findLabel = fmt.Sprintf("Find %q", m.filter)
