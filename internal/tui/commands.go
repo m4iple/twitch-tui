@@ -26,7 +26,7 @@ func (m *Model) executeCommand(input string) tea.Cmd {
 		return nil
 	}
 
-	def, ok := commandRegistry()[name]
+	def, ok := commandRegistry[name]
 	if !ok {
 		m.handleScroll(formatSystemMessage(fmt.Sprintf("Unknown command: %s", name)))
 		return nil
@@ -41,7 +41,7 @@ func (m *Model) executeCommand(input string) tea.Cmd {
 	return cmd
 }
 
-func commandRegistry() map[string]commandDef {
+var commandRegistry = func() map[string]commandDef {
 	commands := []commandDef{
 		{
 			Name:    "login",
@@ -62,6 +62,12 @@ func commandRegistry() map[string]commandDef {
 			Handle:  handleFindCommand,
 		},
 		{
+			Name:    "config",
+			Aliases: []string{"cfg"},
+			Usage:   ":config [reload | api enable/disable | emotes enable/disable]",
+			Handle:  handleConfigCommand,
+		},
+		{
 			Name:    "quit",
 			Aliases: []string{"q"},
 			Usage:   ":quit",
@@ -69,16 +75,15 @@ func commandRegistry() map[string]commandDef {
 		},
 	}
 
-	registry := make(map[string]commandDef, len(commands)*2)
+	reg := make(map[string]commandDef, len(commands)*2)
 	for _, cmd := range commands {
-		registry[cmd.Name] = cmd
+		reg[cmd.Name] = cmd
 		for _, alias := range cmd.Aliases {
-			registry[alias] = cmd
+			reg[alias] = cmd
 		}
 	}
-
-	return registry
-}
+	return reg
+}()
 
 func parseCommand(input string) (string, []string, error) {
 	trimmed := strings.TrimSpace(input)
@@ -118,6 +123,7 @@ func handleLoginCommand(m *Model, args []string) (tea.Cmd, error) {
 	m.config.Twitch.User = user
 	m.config.Twitch.Oauth = token
 	m.config.Twitch.Refresh = refresh
+	m.config.Twitch.UserID = m.twitch.UserID
 	if err := config.UpdateConfig(m.config); err != nil {
 		m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
 	}
@@ -142,7 +148,10 @@ func handleJoinCommand(m *Model, args []string) (tea.Cmd, error) {
 		m.textInput.Placeholder = "Send a message..."
 		m.state = stateChat
 		m.twitch.CurrentChannel = channel
+		m.twitch.ChannelID = ""
 		m.config.Twitch.Channel = channel
+		m.config.Twitch.ChannelID = ""
+		m.config.Twitch.UserID = m.twitch.UserID
 		m.filter = ""
 		m.messages = nil
 		m.refreshViewport()
@@ -152,18 +161,16 @@ func handleJoinCommand(m *Model, args []string) (tea.Cmd, error) {
 		return tea.Batch(m.connectCmd(), waitForChatMsg(m.twitch.MsgChan)), nil
 	}
 
-	if err := m.twitch.SwitchChannel(channel); err != nil {
-		return nil, fmt.Errorf("join failed: %v", err)
-	}
-
 	m.config.Twitch.Channel = channel
+	m.config.Twitch.ChannelID = ""
+	m.config.Twitch.UserID = m.twitch.UserID
 	m.filter = ""
 	m.messages = nil
 	m.refreshViewport()
 	if err := config.UpdateConfig(m.config); err != nil {
 		m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
 	}
-	return nil, nil
+	return m.switchChannelCmd(channel), nil
 }
 
 func handleFindCommand(m *Model, args []string) (tea.Cmd, error) {
@@ -179,4 +186,67 @@ func handleFindCommand(m *Model, args []string) (tea.Cmd, error) {
 
 func handleQuitCommand(m *Model, args []string) (tea.Cmd, error) {
 	return tea.Quit, nil
+}
+
+func handleConfigCommand(m *Model, args []string) (tea.Cmd, error) {
+	if len(args) == 0 {
+		help := "Config commands:\n" +
+			"  :config reload              — reload config from disk\n" +
+			"  :config api enable          — enable bits API\n" +
+			"  :config api disable         — disable bits API\n" +
+			"  :config emotes enable       — enable emotes\n" +
+			"  :config emotes disable      — disable emotes"
+		m.handleScroll(formatSystemMessage(help))
+		return nil, nil
+	}
+
+	switch strings.ToLower(args[0]) {
+	case "reload":
+		newCfg := config.Load()
+		newCfg.Twitch = m.config.Twitch
+		m.config = newCfg
+		m.twitch.UpdateConfig(newCfg)
+		m.handleScroll(formatSystemMessage("Config reloaded"))
+
+	case "api":
+		if len(args) < 2 {
+			return nil, errors.New("Usage: :config api enable|disable")
+		}
+		switch strings.ToLower(args[1]) {
+		case "enable":
+			m.config.Api.Bits.Enable = true
+		case "disable":
+			m.config.Api.Bits.Enable = false
+		default:
+			return nil, fmt.Errorf("Unknown option: %s (use enable or disable)", args[1])
+		}
+		m.twitch.UpdateConfig(m.config)
+		if err := config.UpdateConfig(m.config); err != nil {
+			m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
+		}
+		m.handleScroll(formatSystemMessage(fmt.Sprintf("Bits API %sd", args[1])))
+
+	case "emotes":
+		if len(args) < 2 {
+			return nil, errors.New("Usage: :config emotes enable|disable")
+		}
+		switch strings.ToLower(args[1]) {
+		case "enable":
+			m.config.Emotes.Enable = true
+		case "disable":
+			m.config.Emotes.Enable = false
+		default:
+			return nil, fmt.Errorf("Unknown option: %s (use enable or disable)", args[1])
+		}
+		m.twitch.UpdateConfig(m.config)
+		if err := config.UpdateConfig(m.config); err != nil {
+			m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
+		}
+		m.handleScroll(formatSystemMessage(fmt.Sprintf("Emotes %sd", args[1])))
+
+	default:
+		return nil, fmt.Errorf("Unknown config subcommand: %s", args[0])
+	}
+
+	return nil, nil
 }

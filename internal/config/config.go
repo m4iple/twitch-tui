@@ -17,7 +17,6 @@ type Twitch struct {
 	RefreshApi string `toml:"refresh_api"`
 	UserID     string `toml:"user_id"`
 	ChannelID  string `toml:"channel_id"`
-	ClientID   string `toml:"client_id"`
 }
 
 type Theme struct {
@@ -59,11 +58,20 @@ type BitsApi struct {
 	Endpoint   string `toml:"endpoint"`
 }
 
+type Api struct {
+	Bits BitsApi `toml:"bits"`
+}
+
+type Emotes struct {
+	Enable bool `toml:"enable"`
+}
+
 type Config struct {
-	Twitch  Twitch  `toml:"twitch"`
-	Theme   Theme   `toml:"theme"`
-	Style   Style   `toml:"style"`
-	BitsApi BitsApi `toml:"bits_api"`
+	Twitch Twitch `toml:"twitch"`
+	Theme  Theme  `toml:"theme"`
+	Style  Style  `toml:"style"`
+	Api    Api    `toml:"api"`
+	Emotes Emotes `toml:"emotes"`
 }
 
 func Load() Config {
@@ -81,10 +89,11 @@ func Load() Config {
 
 func defaultConfig() Config {
 	return Config{
-		Twitch:  defaultTwitch(),
-		Theme:   defaultTheme(),
-		Style:   defaultStyle(),
-		BitsApi: defaultBitsApi(),
+		Twitch: defaultTwitch(),
+		Theme:  defaultTheme(),
+		Style:  defaultStyle(),
+		Api:    defaultApi(),
+		Emotes: defaultEmotes(),
 	}
 }
 
@@ -97,7 +106,6 @@ func defaultTwitch() Twitch {
 		RefreshApi: defaultRefreshAPI,
 		UserID:     "",
 		ChannelID:  "",
-		ClientID:   "",
 	}
 }
 
@@ -139,11 +147,19 @@ func defaultStyle() Style {
 	}
 }
 
-func defaultBitsApi() BitsApi {
-	return BitsApi{
-		Enable:     false,
-		BitsAmount: 0,
-		Endpoint:   "",
+func defaultApi() Api {
+	return Api{
+		Bits: BitsApi{
+			Enable:     false,
+			BitsAmount: 0,
+			Endpoint:   "",
+		},
+	}
+}
+
+func defaultEmotes() Emotes {
+	return Emotes{
+		Enable: false,
 	}
 }
 
@@ -190,6 +206,58 @@ func UpdateLogin(user, oauth string) error {
 
 	cfg.Twitch.User = user
 	cfg.Twitch.Oauth = oauth
+	if cfg.Twitch.RefreshApi == "" {
+		cfg.Twitch.RefreshApi = defaultRefreshAPI
+	}
+
+	if err := writeConfigFile(configPath, cfg); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	return nil
+}
+
+func UpdateUserID(userID string) error {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := readConfigFile(configPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read config file: %v", err)
+		}
+		cfg = defaultConfig()
+	}
+
+	cfg.Twitch.UserID = userID
+	if cfg.Twitch.RefreshApi == "" {
+		cfg.Twitch.RefreshApi = defaultRefreshAPI
+	}
+
+	if err := writeConfigFile(configPath, cfg); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	return nil
+}
+
+func UpdateChannelID(channelID string) error {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := readConfigFile(configPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read config file: %v", err)
+		}
+		cfg = defaultConfig()
+	}
+
+	cfg.Twitch.ChannelID = channelID
 	if cfg.Twitch.RefreshApi == "" {
 		cfg.Twitch.RefreshApi = defaultRefreshAPI
 	}

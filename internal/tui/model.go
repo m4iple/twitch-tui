@@ -76,28 +76,23 @@ func New(cfg config.Config) Model {
 		state = stateChat
 	}
 
-	t := twitch.New(cfg)
-
 	return Model{
 		state:     state,
 		config:    cfg,
 		textInput: ti,
-		twitch:    t,
+		twitch:    twitch.New(cfg),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	var cmds []tea.Cmd
-
-	cmds = append(cmds, textinput.Blink)
-	cmds = append(cmds, waitForSystemMsg(m.twitch.SysChan))
-	cmds = append(cmds, tea.Tick(time.Second, func(_ time.Time) tea.Msg {
-		return tickMsg{}
-	}))
+	cmds := []tea.Cmd{
+		textinput.Blink,
+		waitForSystemMsg(m.twitch.SysChan),
+		tea.Tick(time.Second, func(_ time.Time) tea.Msg { return tickMsg{} }),
+	}
 
 	if m.state == stateChat {
-		cmds = append(cmds, m.connectCmd())
-		cmds = append(cmds, waitForChatMsg(m.twitch.MsgChan))
+		cmds = append(cmds, m.connectCmd(), waitForChatMsg(m.twitch.MsgChan))
 	}
 
 	return tea.Batch(cmds...)
@@ -106,70 +101,19 @@ func (m Model) Init() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
-		return m, tea.Tick(time.Second, func(_ time.Time) tea.Msg {
-			return tickMsg{}
-		})
+		return m, tea.Tick(time.Second, func(_ time.Time) tea.Msg { return tickMsg{} })
+
 	case systemMsg:
 		m.handleScroll(formatSystemMessage(string(msg)))
 		return m, waitForSystemMsg(m.twitch.SysChan)
+
 	case twitch.ChatMessage:
 		m.handleScroll(msg)
 		return m, waitForChatMsg(m.twitch.MsgChan)
+
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "ctrl+q":
-			return m, tea.Quit
-		case "ctrl+f":
-			if m.state == stateChat || m.state == stateInputCommand {
-				m.textInput.SetValue(":find ")
-				m.textInput.SetCursor(len(":find "))
-				m.state = stateInputCommand
-			}
-			return m, nil
-		case "ctrl+j":
-			if m.state == stateChat || m.state == stateInputCommand {
-				m.textInput.SetValue(":join ")
-				m.textInput.SetCursor(len(":join "))
-				m.state = stateInputCommand
-			}
-			return m, nil
-		case "enter":
-			input := strings.TrimSpace(m.textInput.Value())
-			if strings.HasPrefix(input, ":") {
-				m.textInput.Reset()
-				m.state = stateChat
-				return m, m.executeCommand(input)
-			}
+		return m.handleKey(msg)
 
-			switch m.state {
-			case stateInputChannel:
-				channel := input
-				if channel != "" {
-					m.twitch.SwitchChannel(channel)
-					m.config.Twitch.Channel = channel
-					if err := config.UpdateConfig(m.config); err != nil {
-						m.handleScroll(formatSystemMessage("Failed to save config: " + err.Error()))
-					}
-
-					m.textInput.Reset()
-					m.textInput.Placeholder = "Send a message..."
-					m.state = stateChat
-
-					return m, tea.Batch(
-						m.connectCmd(),
-						waitForChatMsg(m.twitch.MsgChan),
-					)
-				}
-			case stateChat, stateInputCommand:
-				if input != "" {
-					m.textInput.Reset()
-					m.state = stateChat
-					return m, m.sendMsgCmd(input)
-				}
-			}
-		}
 	case tea.WindowSizeMsg:
 		m.updateViewport(msg)
 		var cmd tea.Cmd
@@ -183,6 +127,84 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.updateInputState()
 
 	return m, tea.Batch(tiCmd, vpCmd)
+}
+
+func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+q":
+		return m, tea.Quit
+
+	case "ctrl+c":
+		if m.state == stateChat || m.state == stateInputCommand {
+			m.setCommand(":config ")
+		}
+		return m, nil
+
+	case "ctrl+f":
+		if m.state == stateChat || m.state == stateInputCommand {
+			m.setCommand(":find ")
+		}
+		return m, nil
+
+	case "ctrl+j":
+		if m.state == stateChat || m.state == stateInputCommand {
+			m.setCommand(":join ")
+		}
+		return m, nil
+
+	case "enter":
+		return m.handleEnter()
+	}
+
+	var tiCmd, vpCmd tea.Cmd
+	m.textInput, tiCmd = m.textInput.Update(msg)
+	m.viewport, vpCmd = m.viewport.Update(msg)
+	m.updateInputState()
+	return m, tea.Batch(tiCmd, vpCmd)
+}
+
+func (m *Model) setCommand(prefix string) {
+	m.textInput.SetValue(prefix)
+	m.textInput.SetCursor(len(prefix))
+	m.state = stateInputCommand
+}
+
+func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
+	input := strings.TrimSpace(m.textInput.Value())
+
+	if strings.HasPrefix(input, ":") {
+		m.textInput.Reset()
+		m.state = stateChat
+		return m, m.executeCommand(input)
+	}
+
+	switch m.state {
+	case stateInputChannel:
+		if input == "" {
+			return m, nil
+		}
+		m.twitch.CurrentChannel = input
+		m.twitch.ChannelID = ""
+		m.config.Twitch.Channel = input
+		m.config.Twitch.ChannelID = ""
+		m.config.Twitch.UserID = m.twitch.UserID
+		if err := config.UpdateConfig(m.config); err != nil {
+			m.handleScroll(formatSystemMessage("Failed to save config: " + err.Error()))
+		}
+		m.textInput.Reset()
+		m.textInput.Placeholder = "Send a message..."
+		m.state = stateChat
+		return m, tea.Batch(m.connectCmd(), waitForChatMsg(m.twitch.MsgChan))
+
+	case stateChat, stateInputCommand:
+		if input != "" {
+			m.textInput.Reset()
+			m.state = stateChat
+			return m, m.sendMsgCmd(input)
+		}
+	}
+
+	return m, nil
 }
 
 func (m Model) View() string {
@@ -230,12 +252,10 @@ func (m *Model) updateInputState() {
 	if m.state != stateChat && m.state != stateInputCommand {
 		return
 	}
-
 	if strings.HasPrefix(m.textInput.Value(), ":") {
 		m.state = stateInputCommand
 		return
 	}
-
 	if m.state == stateInputCommand {
 		m.state = stateChat
 	}
@@ -248,24 +268,24 @@ func (m *Model) connectCmd() tea.Cmd {
 	}
 }
 
-func waitForSystemMsg(sub chan string) tea.Cmd {
+func (m *Model) switchChannelCmd(channel string) tea.Cmd {
 	return func() tea.Msg {
-		return systemMsg(<-sub)
+		if err := m.twitch.SwitchChannel(channel); err != nil {
+			return systemMsg("Join failed: " + err.Error())
+		}
+		return nil
 	}
 }
 
-func waitForChatMsg(sub chan twitch.ChatMessage) tea.Cmd {
+func (m *Model) sendMsgCmd(content string) tea.Cmd {
 	return func() tea.Msg {
-		return <-sub
-	}
-}
-
-func formatSystemMessage(content string) twitch.ChatMessage {
-	return twitch.ChatMessage{
-		Time:    time.Now(),
-		User:    "System",
-		Flare:   "SYSTEM",
-		Content: content,
+		m.twitch.Say(content)
+		return twitch.ChatMessage{
+			Time:    time.Now(),
+			User:    m.config.Twitch.User,
+			Flare:   "TUI",
+			Content: content,
+		}
 	}
 }
 
@@ -289,20 +309,24 @@ func (m *Model) updateViewport(msg tea.WindowSizeMsg) {
 	m.viewport.GotoBottom()
 }
 
-func (m *Model) sendMsgCmd(content string) tea.Cmd {
+func waitForSystemMsg(sub chan string) tea.Cmd {
 	return func() tea.Msg {
-		if strings.HasPrefix(content, ":") {
-			return nil
-		} else {
-			m.twitch.Say(content)
+		return systemMsg(<-sub)
+	}
+}
 
-			return twitch.ChatMessage{
-				Time:    time.Now(),
-				User:    m.config.Twitch.User,
-				Flare:   "TUI",
-				Content: content,
-			}
-		}
+func waitForChatMsg(sub chan twitch.ChatMessage) tea.Cmd {
+	return func() tea.Msg {
+		return <-sub
+	}
+}
+
+func formatSystemMessage(content string) twitch.ChatMessage {
+	return twitch.ChatMessage{
+		Time:    time.Now(),
+		User:    "System",
+		Flare:   "SYSTEM",
+		Content: content,
 	}
 }
 
