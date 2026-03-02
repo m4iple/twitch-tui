@@ -1,10 +1,12 @@
 package twitch
 
 import (
+	"log"
 	"math/rand"
 	"os"
 	"time"
 	"twitch-tui/internal/config"
+	"twitch-tui/internal/extentions/emotes"
 
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -37,9 +39,7 @@ type Service struct {
 	ChannelID      string
 	ClientID       string
 
-	theme         config.Theme
-	bitsApi       config.BitsApi
-	EmotesEnabled bool
+	cfg config.Config
 
 	logFile *os.File
 }
@@ -59,13 +59,35 @@ func New(cfg config.Config) *Service {
 		ChannelID:      cfg.Twitch.ChannelID,
 		ClientID:       cfg.Twitch.ClientID,
 
-		theme:         cfg.Theme,
-		bitsApi:       cfg.Api.Bits,
-		EmotesEnabled: cfg.Emotes.Enable,
+		cfg: cfg,
 	}
 
 	if s.token != "" {
 		s.login()
+	}
+
+	if s.ChannelID != "" {
+		if cfg.Emotes.SevenTv.Enable {
+			go func() {
+				if err := emotes.Init7tvCache(s.ChannelID); err != nil {
+					log.Printf("7tv emote cache: %v", err)
+				}
+			}()
+		}
+		if cfg.Emotes.Bttv.Enable {
+			go func() {
+				if err := emotes.InitBttvCache(s.ChannelID); err != nil {
+					log.Printf("bttv emote cache: %v", err)
+				}
+			}()
+		}
+		if cfg.Emotes.Ffz.Enable {
+			go func() {
+				if err := emotes.InitFfzCache(s.ChannelID); err != nil {
+					log.Printf("ffz emote cache: %v", err)
+				}
+			}()
+		}
 	}
 
 	s.initLogger(cfg)
@@ -74,27 +96,25 @@ func New(cfg config.Config) *Service {
 }
 
 func (s *Service) UpdateConfig(cfg config.Config) {
-	s.theme = cfg.Theme
-	s.bitsApi = cfg.Api.Bits
-	s.EmotesEnabled = cfg.Emotes.Enable
+	s.cfg = cfg
 }
 
 func (t *Service) randomColor() string {
 	palette := []string{
-		t.theme.Lavender,
-		t.theme.Blue,
-		t.theme.Sapphire,
-		t.theme.Sky,
-		t.theme.Teal,
-		t.theme.Green,
-		t.theme.Yellow,
-		t.theme.Peach,
-		t.theme.Maroon,
-		t.theme.Red,
-		t.theme.Mauve,
-		t.theme.Pink,
-		t.theme.Flamingo,
-		t.theme.Rosewater,
+		t.cfg.Theme.Lavender,
+		t.cfg.Theme.Blue,
+		t.cfg.Theme.Sapphire,
+		t.cfg.Theme.Sky,
+		t.cfg.Theme.Teal,
+		t.cfg.Theme.Green,
+		t.cfg.Theme.Yellow,
+		t.cfg.Theme.Peach,
+		t.cfg.Theme.Maroon,
+		t.cfg.Theme.Red,
+		t.cfg.Theme.Mauve,
+		t.cfg.Theme.Pink,
+		t.cfg.Theme.Flamingo,
+		t.cfg.Theme.Rosewater,
 	}
 	return palette[rand.Intn(len(palette))]
 }

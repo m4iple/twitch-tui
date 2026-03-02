@@ -64,7 +64,27 @@ type Api struct {
 }
 
 type Emotes struct {
-	Enable bool `toml:"enable"`
+	Twitch  TwitchEmotes  `toml:"twitch"`
+	SevenTv SevenTvEmotes `toml:"sevenTv"`
+	Bttv    BttvEmotes    `toml:"bttv"`
+	Ffz     FfzEmotes     `toml:"ffz"`
+}
+
+type TwitchEmotes struct {
+	Enable bool   `toml:"enable"`
+	Color  string `toml:"color"`
+}
+type SevenTvEmotes struct {
+	Enable bool   `toml:"enable"`
+	Color  string `toml:"color"`
+}
+type BttvEmotes struct {
+	Enable bool   `toml:"enable"`
+	Color  string `toml:"color"`
+}
+type FfzEmotes struct {
+	Enable bool   `toml:"enable"`
+	Color  string `toml:"color"`
 }
 
 type Log struct {
@@ -167,8 +187,24 @@ func defaultApi() Api {
 }
 
 func defaultEmotes() Emotes {
+	theme := defaultTheme()
 	return Emotes{
-		Enable: false,
+		Twitch: TwitchEmotes{
+			Enable: true,
+			Color:  theme.Blue,
+		},
+		SevenTv: SevenTvEmotes{
+			Enable: false,
+			Color:  theme.Sapphire,
+		},
+		Bttv: BttvEmotes{
+			Enable: false,
+			Color:  theme.Rosewater,
+		},
+		Ffz: FfzEmotes{
+			Enable: false,
+			Color:  theme.Yellow,
+		},
 	}
 }
 

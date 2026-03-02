@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"twitch-tui/internal/extentions/api"
+	"twitch-tui/internal/extentions/emotes"
 
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -20,10 +21,12 @@ func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 
 	highlight, prepend := resolveHighlight(msg, nameColor, s)
 
+	content := emotes.ResolveEmotes(msg.Message, msg.Emotes, s.cfg)
+
 	return ChatMessage{
 		Time:         msg.Time,
 		User:         msg.User.Name,
-		Content:      msg.Message,
+		Content:      content,
 		Flare:        flare,
 		NameColor:    nameColor,
 		TaggedUsers:  taggedUsers,
@@ -53,6 +56,8 @@ func (s *Service) formatUserNotice(msg twitch.UserNoticeMessage) (ChatMessage, b
 		content += ": " + msg.Message
 		highlight = s.randomColor()
 	}
+
+	content = emotes.ResolveEmotes(content, msg.Emotes, s.cfg)
 
 	return ChatMessage{
 		Time:      msg.Time,
@@ -88,8 +93,8 @@ func resolveHighlight(msg twitch.PrivateMessage, nameColor string, s *Service) (
 	case msg.Bits > 0:
 		prepend = fmt.Sprintf("- Cheer%d -", msg.Bits)
 		highlight = s.randomColor()
-		if s.bitsApi.Enable && s.bitsApi.Endpoint != "" && msg.Bits >= s.bitsApi.BitsAmount {
-			api.SendBitsNotification(s.bitsApi.Endpoint, msg.User.Name, msg.Message, nameColor)
+		if s.cfg.Api.Bits.Enable && s.cfg.Api.Bits.Endpoint != "" && msg.Bits >= s.cfg.Api.Bits.BitsAmount {
+			api.SendBitsNotification(s.cfg.Api.Bits.Endpoint, msg.User.Name, msg.Message, nameColor)
 		}
 	case msg.FirstMessage:
 		prepend = "- First -"
