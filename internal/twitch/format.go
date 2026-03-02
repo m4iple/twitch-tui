@@ -19,7 +19,7 @@ func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 		nameColor = s.randomColor()
 	}
 
-	highlight, prepend := resolveHighlight(msg, nameColor, s)
+	highlight, prepend := resolveHighlight(&msg, nameColor, s)
 
 	content := emotes.ResolveEmotes(msg.Message, msg.Emotes, s.cfg)
 
@@ -50,14 +50,13 @@ func (s *Service) formatUserNotice(msg twitch.UserNoticeMessage) (ChatMessage, b
 		nameColor = s.randomColor()
 	}
 
+	message := emotes.ResolveEmotes(msg.Message, msg.Emotes, s.cfg)
 	content := msg.SystemMsg
 	var highlight string
 	if msg.Message != "" {
-		content += ": " + msg.Message
+		content += ": " + message
 		highlight = s.randomColor()
 	}
-
-	content = emotes.ResolveEmotes(content, msg.Emotes, s.cfg)
 
 	return ChatMessage{
 		Time:      msg.Time,
@@ -88,11 +87,12 @@ func resolveFlare(msg twitch.PrivateMessage) string {
 	}
 }
 
-func resolveHighlight(msg twitch.PrivateMessage, nameColor string, s *Service) (highlight, prepend string) {
+func resolveHighlight(msg *twitch.PrivateMessage, nameColor string, s *Service) (highlight, prepend string) {
 	switch {
 	case msg.Bits > 0:
 		prepend = fmt.Sprintf("- Cheer%d -", msg.Bits)
 		highlight = s.randomColor()
+		msg.Message = strings.TrimSpace(strings.TrimPrefix(msg.Message, fmt.Sprintf("Cheer%d", msg.Bits)))
 		if s.cfg.Api.Bits.Enable && s.cfg.Api.Bits.Endpoint != "" && msg.Bits >= s.cfg.Api.Bits.BitsAmount {
 			api.SendBitsNotification(s.cfg.Api.Bits.Endpoint, msg.User.Name, msg.Message, nameColor)
 		}
