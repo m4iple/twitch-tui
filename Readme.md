@@ -35,12 +35,22 @@ Commands are prefixed with a colon:
   
 - **:find** or **:f** - Filter messages by search term
   - Usage: `:find <search_string>` (use `:find` with no args to clear filter)
+
+- **:config** - Manage application configuration
+  - `:config reload` - Reload configuration from `config.toml`
+  - `:config api enable|disable` - Enable or disable the bits API
+  - `:config emotes <provider> enable|disable` - Enable or disable emotes from a provider (twitch, 7tv, bttv, or ffz)
+    - *Note: 7tv, bttv, and ffz emotes require being logged in with `:login`*
   
 - **:quit** or **:q** - Exit the application
   - Usage: `:quit`
 
 ## Keyboard Shortcuts
 
+- **i** - Enter insert mode to send messages
+- **:** - Enter command mode
+- **Esc** - Exit insert or command mode
+- **Ctrl+C** - Open config command
+- **Ctrl+F** - Open find/search command
+- **Ctrl+J** - Open join channel command
 - **Ctrl+Q** - Quit the application
-- **Ctrl+F** - Open find command (prefills `:find `)
-- **Ctrl+J** - Open join command (prefills `:join `)

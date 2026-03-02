@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"twitch-tui/internal/config"
+	"twitch-tui/internal/extentions/emotes"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -146,7 +147,8 @@ func handleJoinCommand(m *Model, args []string) (tea.Cmd, error) {
 	if m.state == stateInputChannel {
 		m.textInput.Reset()
 		m.textInput.Placeholder = "Send a message..."
-		m.state = stateChat
+		m.state = stateView
+		m.textInput.Blur()
 		m.twitch.CurrentChannel = channel
 		m.twitch.ChannelID = ""
 		m.config.Twitch.Channel = channel
@@ -191,11 +193,11 @@ func handleQuitCommand(m *Model, args []string) (tea.Cmd, error) {
 func handleConfigCommand(m *Model, args []string) (tea.Cmd, error) {
 	if len(args) == 0 {
 		help := "Config commands:\n" +
-			"  :config reload              — reload config from disk\n" +
-			"  :config api enable          — enable bits API\n" +
-			"  :config api disable         — disable bits API\n" +
-			"  :config emotes enable       — enable emotes\n" +
-			"  :config emotes disable      — disable emotes"
+			"  :config reload                                  — reload config from disk\n" +
+			"  :config api enable                              — enable bits API\n" +
+			"  :config api disable                             — disable bits API\n" +
+			"  :config emotes twitch|7tv|bttv|ffz enable       — enable twitch|7tv|bttv|ffz emotes\n" +
+			"  :config emotes twitch|7tv|bttv|ffz disable      — disable twitch|7tv|bttv|ffz emotes"
 		m.handleScroll(formatSystemMessage(help))
 		return nil, nil
 	}
@@ -206,6 +208,9 @@ func handleConfigCommand(m *Model, args []string) (tea.Cmd, error) {
 		newCfg.Twitch = m.config.Twitch
 		m.config = newCfg
 		m.twitch.UpdateConfig(newCfg)
+		if err := config.UpdateConfig(newCfg); err != nil {
+			m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
+		}
 		m.handleScroll(formatSystemMessage("Config reloaded"))
 
 	case "api":
@@ -227,26 +232,69 @@ func handleConfigCommand(m *Model, args []string) (tea.Cmd, error) {
 		m.handleScroll(formatSystemMessage(fmt.Sprintf("Bits API %sd", args[1])))
 
 	case "emotes":
-		if len(args) < 2 {
-			return nil, errors.New("Usage: :config emotes enable|disable")
+		if len(args) < 3 {
+			return nil, errors.New("Usage: :config emotes twitch|7tv|bttv|ffz enable|disable")
 		}
-		switch strings.ToLower(args[1]) {
+
+		emotesConfig := map[string]*bool{
+			"twitch": &m.config.Emotes.Twitch.Enable,
+			"7tv":    &m.config.Emotes.SevenTv.Enable,
+			"bttv":   &m.config.Emotes.Bttv.Enable,
+			"ffz":    &m.config.Emotes.Ffz.Enable,
+		}
+
+		enableValue, ok := emotesConfig[strings.ToLower(args[1])]
+		if !ok {
+			return nil, fmt.Errorf("Unknown option: %s (use twitch, 7tv, bttv or ffz)", args[1])
+		}
+
+		switch strings.ToLower(args[2]) {
 		case "enable":
-			m.config.Emotes.Enable = true
+			*enableValue = true
+			if m.twitch.ChannelID != "" {
+				emoteType := strings.ToLower(args[1])
+				initEmoteCache(emoteType, m.twitch.ChannelID, func(msg string) {
+					m.handleScroll(formatSystemMessage(msg))
+				})
+			}
 		case "disable":
-			m.config.Emotes.Enable = false
+			*enableValue = false
 		default:
-			return nil, fmt.Errorf("Unknown option: %s (use enable or disable)", args[1])
+			return nil, fmt.Errorf("Unknown option: %s (use enable or disable)", args[2])
 		}
+
 		m.twitch.UpdateConfig(m.config)
 		if err := config.UpdateConfig(m.config); err != nil {
 			m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
 		}
-		m.handleScroll(formatSystemMessage(fmt.Sprintf("Emotes %sd", args[1])))
+		m.handleScroll(formatSystemMessage(fmt.Sprintf("Emotes %s %sd", args[1], args[2])))
 
 	default:
 		return nil, fmt.Errorf("Unknown config subcommand: %s", args[0])
 	}
 
 	return nil, nil
+}
+
+func initEmoteCache(emoteType string, channelID string, msgHandler func(string)) {
+	switch emoteType {
+	case "7tv":
+		go func() {
+			if err := emotes.Init7tvCache(channelID); err != nil {
+				msgHandler(fmt.Sprintf("7tv emote cache init: %v", err))
+			}
+		}()
+	case "bttv":
+		go func() {
+			if err := emotes.InitBttvCache(channelID); err != nil {
+				msgHandler(fmt.Sprintf("bttv emote cache init: %v", err))
+			}
+		}()
+	case "ffz":
+		go func() {
+			if err := emotes.InitFfzCache(channelID); err != nil {
+				msgHandler(fmt.Sprintf("ffz emote cache init: %v", err))
+			}
+		}()
+	}
 }

@@ -14,6 +14,7 @@ func (t *Service) Connect() {
 
 func (t *Service) startSession() {
 	t.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+		t.logRaw(message.Raw)
 		t.MsgChan <- t.formatMessage(message)
 	})
 
