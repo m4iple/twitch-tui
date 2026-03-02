@@ -147,7 +147,8 @@ func handleJoinCommand(m *Model, args []string) (tea.Cmd, error) {
 	if m.state == stateInputChannel {
 		m.textInput.Reset()
 		m.textInput.Placeholder = "Send a message..."
-		m.state = stateChat
+		m.state = stateView
+		m.textInput.Blur()
 		m.twitch.CurrentChannel = channel
 		m.twitch.ChannelID = ""
 		m.config.Twitch.Channel = channel

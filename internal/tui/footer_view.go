@@ -17,10 +17,12 @@ func (m Model) footerView() string {
 	switch m.state {
 	case stateInputChannel:
 		inputLabel = "Channel"
+	case stateView:
+		inputLabel = "View"
+	case stateInputChat:
+		inputLabel = "Chat"
 	case stateInputCommand:
 		inputLabel = "Command"
-	case stateChat:
-		inputLabel = "Chat"
 	default:
 		inputLabel = "Input"
 	}

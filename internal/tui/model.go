@@ -47,8 +47,9 @@ type ThemeStyles struct {
 
 const (
 	stateInputChannel appState = iota
-	stateInputCommand
-	stateChat
+	stateView                  // Normal mode - hjkl navigation, i for insert, : for command
+	stateInputChat             // Insert mode - typing chat messages
+	stateInputCommand          // Command mode - typing commands
 )
 
 type Model struct {
@@ -73,7 +74,8 @@ func New(cfg config.Config) Model {
 
 	state := stateInputChannel
 	if cfg.Twitch.Channel != "" {
-		state = stateChat
+		state = stateView
+		ti.Blur()
 	}
 
 	return Model{
@@ -91,7 +93,7 @@ func (m Model) Init() tea.Cmd {
 		tea.Tick(time.Second, func(_ time.Time) tea.Msg { return tickMsg{} }),
 	}
 
-	if m.state == stateChat {
+	if m.state == stateView {
 		cmds = append(cmds, m.connectCmd(), waitForChatMsg(m.twitch.MsgChan))
 	}
 
@@ -135,35 +137,62 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case "ctrl+c":
-		if m.state == stateChat || m.state == stateInputCommand {
+		if m.state == stateView || m.state == stateInputChat {
 			m.setCommand(":config ")
 		}
 		return m, nil
 
 	case "ctrl+f":
-		if m.state == stateChat || m.state == stateInputCommand {
+		if m.state == stateView || m.state == stateInputChat {
 			m.setCommand(":find ")
 		}
 		return m, nil
 
 	case "ctrl+j":
-		if m.state == stateChat || m.state == stateInputCommand {
+		if m.state == stateView || m.state == stateInputChat {
 			m.setCommand(":join ")
 		}
 		return m, nil
 
 	case "enter":
 		return m.handleEnter()
+
+	case "i":
+		if m.state == stateView {
+			m.state = stateInputChat
+			m.textInput.Focus()
+			m.textInput.SetValue("")
+			return m, nil
+		}
+
+	case ":":
+		if m.state == stateView {
+			m.setCommand(":")
+			return m, nil
+		}
+
+	case "esc":
+		if m.state == stateInputChat || m.state == stateInputCommand {
+			m.state = stateView
+			m.textInput.Blur()
+			m.textInput.Reset()
+			return m, nil
+		}
 	}
 
 	var tiCmd, vpCmd tea.Cmd
 	m.textInput, tiCmd = m.textInput.Update(msg)
-	m.viewport, vpCmd = m.viewport.Update(msg)
 	m.updateInputState()
+
+	if m.state == stateView {
+		m.viewport, vpCmd = m.viewport.Update(msg)
+	}
+
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
 func (m *Model) setCommand(prefix string) {
+	m.textInput.Focus()
 	m.textInput.SetValue(prefix)
 	m.textInput.SetCursor(len(prefix))
 	m.state = stateInputCommand
@@ -174,7 +203,8 @@ func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
 
 	if strings.HasPrefix(input, ":") {
 		m.textInput.Reset()
-		m.state = stateChat
+		m.state = stateView
+		m.textInput.Blur()
 		return m, m.executeCommand(input)
 	}
 
@@ -193,13 +223,15 @@ func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
 		}
 		m.textInput.Reset()
 		m.textInput.Placeholder = "Send a message..."
-		m.state = stateChat
+		m.state = stateView
+		m.textInput.Blur()
 		return m, tea.Batch(m.connectCmd(), waitForChatMsg(m.twitch.MsgChan))
 
-	case stateChat, stateInputCommand:
+	case stateInputChat, stateInputCommand:
 		if input != "" {
 			m.textInput.Reset()
-			m.state = stateChat
+			m.state = stateView
+			m.textInput.Blur()
 			return m, m.sendMsgCmd(input)
 		}
 	}
@@ -249,15 +281,13 @@ func (m *Model) refreshViewport() {
 }
 
 func (m *Model) updateInputState() {
-	if m.state != stateChat && m.state != stateInputCommand {
-		return
-	}
-	if strings.HasPrefix(m.textInput.Value(), ":") {
+	if m.state == stateInputChat && strings.HasPrefix(strings.TrimSpace(m.textInput.Value()), ":") {
 		m.state = stateInputCommand
 		return
 	}
-	if m.state == stateInputCommand {
-		m.state = stateChat
+
+	if m.state == stateInputCommand && !strings.HasPrefix(strings.TrimSpace(m.textInput.Value()), ":") {
+		m.state = stateInputChat
 	}
 }
 
