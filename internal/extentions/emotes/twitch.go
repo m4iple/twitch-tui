@@ -26,7 +26,7 @@ func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string) string 
 				start: pos.Start,
 				end:   pos.End,
 				id:    emote.ID,
-				name:  string(runes[pos.Start : pos.End+1]),
+				name:  string(runes[pos.Start : min(pos.End+1, len(runes))]),
 			})
 		}
 	}
