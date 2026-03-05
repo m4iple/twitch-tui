@@ -9,7 +9,7 @@ import (
 	irc "github.com/gempir/go-twitch-irc/v4"
 )
 
-func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string) string {
+func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string, posOffset int) string {
 	type segment struct {
 		start int
 		end   int
@@ -22,11 +22,19 @@ func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string) string 
 
 	for _, emote := range emotes {
 		for _, pos := range emote.Positions {
+			adjustedStart := pos.Start - posOffset
+			adjustedEnd := pos.End - posOffset
+			if adjustedStart < 0 || adjustedStart >= len(runes) {
+				continue
+			}
+			if adjustedEnd >= len(runes) {
+				adjustedEnd = len(runes) - 1
+			}
 			segments = append(segments, segment{
-				start: pos.Start,
-				end:   pos.End,
+				start: adjustedStart,
+				end:   adjustedEnd,
 				id:    emote.ID,
-				name:  string(runes[pos.Start : pos.End+1]),
+				name:  string(runes[adjustedStart:min(adjustedEnd+1, len(runes))]),
 			})
 		}
 	}
