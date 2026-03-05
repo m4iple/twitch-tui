@@ -56,20 +56,57 @@ func (m Model) formatMessage(msg twitch.ChatMessage) string {
 	wrappedContent := m.wrapText(contentPart, availableWidth)
 	lines := strings.Split(wrappedContent, "\n")
 
-	contentStyle := styles.Text
-	if msg.Highlight != "" {
-		contentStyle = lipgloss.NewStyle().Background(lipgloss.Color(msg.Highlight)).Foreground(lipgloss.Color(m.config.Theme.Base))
-	}
-
 	var result strings.Builder
 	for i, line := range lines {
+		var styledLine string
+		if msg.Highlight != "" {
+			styledLine = m.applyHighlightWithEmotes(line, msg.Highlight)
+		} else {
+			styledLine = styles.Text.Render(line)
+		}
+
 		if i == 0 {
-			result.WriteString(timePart + " " + flarePart + userStr + styles.Text.Render(": ") + prependPart + contentStyle.Render(line) + "\n")
+			result.WriteString(timePart + " " + flarePart + userStr + styles.Text.Render(": ") + prependPart + styledLine + "\n")
 		} else {
 			indent := strings.Repeat(" ", prefixLen+1)
-			result.WriteString(indent + contentStyle.Render(line) + "\n")
+			result.WriteString(indent + styledLine + "\n")
 		}
 	}
 
 	return result.String()
+}
+
+// applyHighlightWithEmotes applies a background highlight while preserving embedded emote
+// escape sequences. It handles the issue where emote styling reset codes would interrupt
+// the background color by re-applying the background after each reset.
+func (m Model) applyHighlightWithEmotes(line string, highlightColor string) string {
+	if highlightColor == "" {
+		return line
+	}
+
+	highlightStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(highlightColor)).
+		Foreground(lipgloss.Color(m.config.Theme.Base))
+
+	containsEmotes := strings.Contains(line, "\x1b]8;;")
+
+	if !containsEmotes {
+		return highlightStyle.Render(line)
+	}
+
+	result := highlightStyle.Render(line)
+
+	if strings.HasSuffix(result, "\x1b[0m") {
+		content := result[:len(result)-4]
+
+		reapplyStyle := highlightStyle.Render("")
+
+		reapplyCodes := reapplyStyle[:len(reapplyStyle)-4]
+
+		content = strings.ReplaceAll(content, "\x1b[0m", "\x1b[0m"+reapplyCodes)
+
+		result = content + "\x1b[0m"
+	}
+
+	return result
 }
