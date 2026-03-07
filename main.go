@@ -12,7 +12,7 @@ func main() {
 	cfg := config.Load()
 
 	model := tui.New(cfg)
-	program := tea.NewProgram(&model, tea.WithAltScreen())
+	program := tea.NewProgram(&model, tea.WithAltScreen()) // tui using alternate screen buffer - seperate screenf from comandline
 	if _, err := program.Run(); err != nil {
 		log.Fatal(err)
 	}

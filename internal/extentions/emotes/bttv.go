@@ -25,6 +25,7 @@ var (
 	bttvCacheMu sync.RWMutex
 )
 
+// with the channel id we call the bttv api and chache the channel emotes
 func InitBttvCache(channelID string) error {
 	globalResp, err := http.Get("https://api.betterttv.net/3/cached/emotes/global")
 	if err != nil {
@@ -56,7 +57,7 @@ func InitBttvCache(channelID string) error {
 
 	cache := make(map[string]string, len(all))
 	for _, e := range all {
-		cache[e.Code] = "https://cdn.betterttv.net/emote/" + e.ID + "/3x"
+		cache[e.Code] = "https://cdn.betterttv.net/emote/" + e.ID + "/3x" // 3x is the size of the emote
 	}
 
 	bttvCacheMu.Lock()
@@ -66,6 +67,7 @@ func InitBttvCache(channelID string) error {
 	return nil
 }
 
+// do the sane as the twitch emotes with the cached words
 func addBttvEmotesLink(text string, theme string) string {
 	bttvCacheMu.RLock()
 	cache := bttvCache

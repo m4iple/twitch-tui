@@ -9,6 +9,7 @@ import (
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
+// format normal chat message
 func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 	flare := resolveFlare(msg)
 
@@ -37,6 +38,7 @@ func (s *Service) formatMessage(msg twitch.PrivateMessage) ChatMessage {
 	}
 }
 
+// format twitch system messages for subs nd stuff
 func (s *Service) formatUserNotice(msg twitch.UserNoticeMessage) (ChatMessage, bool) {
 	switch msg.MsgID {
 	case "sub", "resub", "subgift", "anonsubgift", "submysterygift",
@@ -68,6 +70,7 @@ func (s *Service) formatUserNotice(msg twitch.UserNoticeMessage) (ChatMessage, b
 	}, true
 }
 
+// set the user flares
 func resolveFlare(msg twitch.PrivateMessage) string {
 	if msg.CustomRewardID != "" {
 		return "REDEEM"
@@ -87,6 +90,7 @@ func resolveFlare(msg twitch.PrivateMessage) string {
 	}
 }
 
+// set the color for the highlight - also set generate the prefix for bits and first
 func resolveHighlight(msg *twitch.PrivateMessage, nameColor string, s *Service) (highlight, prepend string, offset int) {
 	offset = 0
 	switch {
@@ -94,7 +98,7 @@ func resolveHighlight(msg *twitch.PrivateMessage, nameColor string, s *Service) 
 		prepend = fmt.Sprintf("- Cheer%d -", msg.Bits)
 		highlight = s.randomColor()
 		prefix := fmt.Sprintf("Cheer%d", msg.Bits)
-		offset = len([]rune(prefix)) + 1
+		offset = len([]rune(prefix)) + 1 // since we cut out a part of the message we need to get the lengh of it so other operations dont fail (emotes)
 		msg.Message = strings.TrimSpace(strings.TrimPrefix(msg.Message, prefix))
 		if s.cfg.Api.Bits.Enable && s.cfg.Api.Bits.Endpoint != "" && msg.Bits >= s.cfg.Api.Bits.BitsAmount {
 			api.SendBitsNotification(s.cfg.Api.Bits.Endpoint, msg.User.Name, msg.Message, nameColor)
@@ -107,12 +111,13 @@ func resolveHighlight(msg *twitch.PrivateMessage, nameColor string, s *Service) 
 	return
 }
 
+// we generate the @users array form the message and generate a random color for each one of them
 func extractTags(message string, colorFn func() string) ([]string, map[string]string) {
 	var taggedUsers []string
 	taggedColors := make(map[string]string)
 	seen := make(map[string]bool)
 
-	for _, word := range strings.Fields(message) {
+	for word := range strings.FieldsSeq(message) {
 		if !strings.HasPrefix(word, "@") {
 			continue
 		}

@@ -12,6 +12,7 @@ func (t *Service) Connect() {
 	t.startSession()
 }
 
+// set up the message listenn and on connect fetch the channel id when possible
 func (t *Service) startSession() {
 	t.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		t.logRaw(message.Raw)
@@ -27,11 +28,13 @@ func (t *Service) startSession() {
 	t.client.OnConnect(func() {
 		t.SysChan <- "Connected to #" + t.CurrentChannel
 
+		// if we are not logged dont even try to fetch the ids
 		if !t.Authenticated {
 			t.SysChan <- "Not logged in — user and channel IDs will not be fetched. Use :login to authenticate."
 			return
 		}
 
+		// fetch the channel user id
 		if t.ChannelID == "" {
 			if err := t.FetchChannelID(); err != nil {
 				t.SysChan <- "Channel ID lookup failed: " + err.Error()
@@ -45,6 +48,7 @@ func (t *Service) startSession() {
 			}
 		}
 
+		// fetch the logged in user id
 		if t.UserID == "" {
 			if err := t.FetchUserID(); err != nil {
 				t.SysChan <- "User ID lookup failed: " + err.Error()
@@ -61,7 +65,7 @@ func (t *Service) startSession() {
 		}
 	})
 
-	t.client.Join(t.CurrentChannel)
+	t.client.Join(t.CurrentChannel) // join the channel
 
 	go func() {
 		if err := t.client.Connect(); err != nil {
@@ -70,6 +74,7 @@ func (t *Service) startSession() {
 	}()
 }
 
+// exit current channel and join the new one - also fetch our beloved ids
 func (t *Service) SwitchChannel(newName string) error {
 	if t.client == nil {
 		return errors.New("client not initialized")
@@ -90,10 +95,12 @@ func (t *Service) SwitchChannel(newName string) error {
 	return nil
 }
 
+// post text input to twitch
 func (t *Service) Say(message string) {
 	t.client.Say(t.CurrentChannel, message)
 }
 
+// exported login used in the login command
 func (t *Service) Login(user, token, refresh string) error {
 	if user == "" {
 		return errors.New("missing user")
@@ -116,13 +123,4 @@ func (t *Service) Login(user, token, refresh string) error {
 	t.login()
 	t.startSession()
 	return nil
-}
-
-func (t *Service) login() {
-	if !strings.HasPrefix(t.token, "oauth:") {
-		t.token = "oauth:" + t.token
-	}
-
-	t.client = twitch.NewClient(t.User, t.token)
-	t.Authenticated = true
 }

@@ -9,6 +9,10 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+const defaultRefreshAPI = "https://twitchtokengenerator.com/api/refresh/"
+const configFileName = "config.toml"
+const appDir = "twitch-tui"
+
 type Twitch struct {
 	Channel    string `toml:"channel"`
 	User       string `toml:"user"`
@@ -20,17 +24,9 @@ type Twitch struct {
 	ClientID   string `toml:"client_id"`
 }
 
+// stripped down Catppuccin Theme
 type Theme struct {
-	Crust     string `toml:"crust"`
-	Mantle    string `toml:"mantle"`
 	Base      string `toml:"base"`
-	Surface0  string `toml:"surface0"`
-	Surface1  string `toml:"surface1"`
-	Surface2  string `toml:"surface2"`
-	Overlay0  string `toml:"overlay0"`
-	Overlay1  string `toml:"overlay1"`
-	Overlay2  string `toml:"overlay2"`
-	Subtext0  string `toml:"subtext0"`
 	Subtext1  string `toml:"subtext1"`
 	Text      string `toml:"text"`
 	Lavender  string `toml:"lavender"`
@@ -141,16 +137,7 @@ func defaultTwitch() Twitch {
 func defaultTheme() Theme {
 	// Catppuccin Frappe
 	return Theme{
-		Crust:     "#232634",
-		Mantle:    "#292c3c",
 		Base:      "#303446",
-		Surface0:  "#414559",
-		Surface1:  "#51576d",
-		Surface2:  "#626880",
-		Overlay0:  "#737994",
-		Overlay1:  "#838ba7",
-		Overlay2:  "#949cbb",
-		Subtext0:  "#a5adce",
 		Subtext1:  "#949cbb",
 		Text:      "#c6d0f5",
 		Lavender:  "#babbf1",
@@ -215,6 +202,7 @@ func defaultLog() Log {
 	}
 }
 
+// Upadting the token and refresh token in the config file - on token refresh
 func UpdateTokens(newOauth, newRefresh string) error {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -242,6 +230,7 @@ func UpdateTokens(newOauth, newRefresh string) error {
 	return nil
 }
 
+// Update oauth and user on login
 func UpdateLogin(user, oauth string) error {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -269,6 +258,7 @@ func UpdateLogin(user, oauth string) error {
 	return nil
 }
 
+// Update the fetched user id
 func UpdateUserID(userID string) error {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -295,6 +285,7 @@ func UpdateUserID(userID string) error {
 	return nil
 }
 
+// Update the fetched client id
 func UpdateClientID(clientID string) error {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -321,6 +312,7 @@ func UpdateClientID(clientID string) error {
 	return nil
 }
 
+// Update the fetched channel id
 func UpdateChannelID(channelID string) error {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -347,6 +339,7 @@ func UpdateChannelID(channelID string) error {
 	return nil
 }
 
+// completely update / overwrite config
 func UpdateConfig(cfg Config) error {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -364,10 +357,7 @@ func UpdateConfig(cfg Config) error {
 	return nil
 }
 
-const defaultRefreshAPI = "https://twitchtokengenerator.com/api/refresh/"
-const configFileName = "config.toml"
-const appDir = "twitch-tui"
-
+// gets / creates the config path - .config/twitch-tui | %appdata%/Roaming/twitch-tui
 func getConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -384,6 +374,7 @@ func getConfigPath() (string, error) {
 	return filepath.Join(appConfigDir, configFileName), nil
 }
 
+// opens file - decodes toml - updates cfg pointer
 func loadConfigFile(path string, cfg *Config) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -403,6 +394,7 @@ func loadConfigFile(path string, cfg *Config) error {
 	return nil
 }
 
+// loads defautl config then overwrites it with the conf in the file
 func readConfigFile(path string) (Config, error) {
 	cfg := defaultConfig()
 	if err := loadConfigFile(path, &cfg); err != nil {
@@ -412,6 +404,7 @@ func readConfigFile(path string) (Config, error) {
 	return cfg, nil
 }
 
+// write config to disk
 func writeConfigFile(path string, cfg Config) error {
 	var buf bytes.Buffer
 	encoder := toml.NewEncoder(&buf)

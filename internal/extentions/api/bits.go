@@ -12,6 +12,7 @@ type api struct {
 	color   string
 }
 
+// create an post to an endpoint
 func SendBitsNotification(endpoint, name, content, nameColor string) {
 	go func() {
 		payload := api{

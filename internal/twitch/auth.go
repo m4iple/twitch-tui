@@ -8,8 +8,21 @@ import (
 	"net/http"
 	"strings"
 	"twitch-tui/internal/config"
+
+	"github.com/gempir/go-twitch-irc/v4"
 )
 
+// login user
+func (t *Service) login() {
+	if !strings.HasPrefix(t.token, "oauth:") {
+		t.token = "oauth:" + t.token
+	}
+
+	t.client = twitch.NewClient(t.User, t.token)
+	t.Authenticated = true
+}
+
+// exported function fetch the user id
 func (t *Service) FetchUserID() error {
 	id, login, clientID, err := t.fetchOAuthIdentity()
 	if err != nil {
@@ -30,6 +43,7 @@ func (t *Service) FetchUserID() error {
 	return nil
 }
 
+// exported function to fetch the channel id
 func (t *Service) FetchChannelID() error {
 	if t.CurrentChannel == "" {
 		return errors.New("channel name is required to fetch channel ID")
@@ -61,6 +75,7 @@ func (t *Service) FetchChannelID() error {
 	return nil
 }
 
+// we call to the twitch oauth api to log our user in, and in the response we ge the client and user id
 func (t *Service) fetchOAuthIdentity() (string, string, string, error) {
 	accessToken := strings.TrimPrefix(t.token, "oauth:")
 	if accessToken == "" {
@@ -107,6 +122,7 @@ func (t *Service) fetchOAuthIdentity() (string, string, string, error) {
 	return result.UserID, result.Login, result.ClientID, nil
 }
 
+// call another twitch api to get a forgein user id from our client id
 func (t *Service) fetchHelixUserIDByLogin(login, clientID string) (string, error) {
 	if login == "" {
 		t.SysChan <- "Helix lookup failed: empty login"
@@ -118,6 +134,7 @@ func (t *Service) fetchHelixUserIDByLogin(login, clientID string) (string, error
 	return id, err
 }
 
+// generate a request and handle the response of a twitch helix call
 func (t *Service) fetchHelixUser(url, label, clientID string) (string, string, error) {
 	if clientID == "" {
 		t.SysChan <- "Helix lookup failed: missing client ID"
@@ -173,6 +190,7 @@ func (t *Service) fetchHelixUser(url, label, clientID string) (string, string, e
 	return result.Data[0].ID, result.Data[0].Login, nil
 }
 
+// call the refresh token api to get a new oath token if needed
 func (t *Service) refresh() error {
 	if t.refreshToken == "" {
 		t.SysChan <- "Refresh failed: no refresh token available"
