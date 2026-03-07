@@ -42,6 +42,8 @@ func (m *Model) executeCommand(input string) tea.Cmd {
 	return cmd
 }
 
+// list of all the commands we hande
+// consist of long name, short handle, help text, function
 var commandRegistry = func() map[string]commandDef {
 	commands := []commandDef{
 		{
@@ -108,6 +110,7 @@ func parseCommand(input string) (string, []string, error) {
 	return strings.ToLower(name), fields[1:], nil
 }
 
+// calls twitch login and updates the config
 func handleLoginCommand(m *Model, args []string) (tea.Cmd, error) {
 	if len(args) < 3 {
 		return nil, errors.New("Usage: :login <user> <token> <refresh>")
@@ -134,6 +137,7 @@ func handleLoginCommand(m *Model, args []string) (tea.Cmd, error) {
 	return nil, nil
 }
 
+// calls the twitch channel connect and update the config - also clear viewport
 func handleJoinCommand(m *Model, args []string) (tea.Cmd, error) {
 	if len(args) < 1 {
 		return nil, errors.New("Usage: :join <channel>")
@@ -175,6 +179,7 @@ func handleJoinCommand(m *Model, args []string) (tea.Cmd, error) {
 	return m.switchChannelCmd(channel), nil
 }
 
+// sets the filter
 func handleFindCommand(m *Model, args []string) (tea.Cmd, error) {
 	if len(args) == 0 {
 		m.filter = ""
@@ -186,6 +191,7 @@ func handleFindCommand(m *Model, args []string) (tea.Cmd, error) {
 	return nil, nil
 }
 
+// just call quit
 func handleQuitCommand(m *Model, args []string) (tea.Cmd, error) {
 	return tea.Quit, nil
 }
@@ -236,6 +242,7 @@ func handleConfigCommand(m *Model, args []string) (tea.Cmd, error) {
 			return nil, errors.New("Usage: :config emotes twitch|7tv|bttv|ffz enable|disable")
 		}
 
+		// map of the enable / disable emotes since all are the same
 		emotesConfig := map[string]*bool{
 			"twitch": &m.config.Emotes.Twitch.Enable,
 			"7tv":    &m.config.Emotes.SevenTv.Enable,
@@ -276,6 +283,7 @@ func handleConfigCommand(m *Model, args []string) (tea.Cmd, error) {
 	return nil, nil
 }
 
+// reinits the emote chaches when we change them with the command
 func initEmoteCache(emoteType string, channelID string, msgHandler func(string)) {
 	switch emoteType {
 	case "7tv":

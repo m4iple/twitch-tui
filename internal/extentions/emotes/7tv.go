@@ -36,6 +36,7 @@ var (
 	sevenTvCacheMu sync.RWMutex
 )
 
+// with the channel id we call the 7tv api and chache the channel emotes
 func Init7tvCache(channelID string) error {
 	url := fmt.Sprintf("https://7tv.io/v3/users/twitch/%s", channelID)
 
@@ -52,7 +53,7 @@ func Init7tvCache(channelID string) error {
 
 	cache := make(map[string]string, len(data.EmoteSet.Emotes))
 	for _, entry := range data.EmoteSet.Emotes {
-		cdnURL := "https:" + entry.Data.Host.URL + "/4x.webp"
+		cdnURL := "https:" + entry.Data.Host.URL + "/4x.webp" // 4x is the size of the emote
 		cache[entry.Name] = cdnURL
 	}
 
@@ -63,6 +64,7 @@ func Init7tvCache(channelID string) error {
 	return nil
 }
 
+// do the sane as the twitch emotes with the cached words
 func add7tvEmotesLink(text string, theme string) string {
 	sevenTvCacheMu.RLock()
 	cache := sevenTvCache

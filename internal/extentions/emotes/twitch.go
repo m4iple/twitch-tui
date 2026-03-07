@@ -9,6 +9,7 @@ import (
 	irc "github.com/gempir/go-twitch-irc/v4"
 )
 
+// twitch emotes are easy they send you the places of them in the message, so we just need to spliece it
 func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string, posOffset int) string {
 	type segment struct {
 		start int
@@ -17,11 +18,12 @@ func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string, posOffs
 		name  string
 	}
 
-	runes := []rune(text)
+	runes := []rune(text) // get the letters from the text
 	var segments []segment
 
 	for _, emote := range emotes {
 		for _, pos := range emote.Positions {
+			// sub the offest of the cut out words
 			adjustedStart := pos.Start - posOffset
 			adjustedEnd := pos.End - posOffset
 			if adjustedStart < 0 || adjustedStart >= len(runes) {
@@ -52,11 +54,11 @@ func addTwitchEmotesLink(text string, emotes []*irc.Emote, theme string, posOffs
 		result.WriteString(string(runes[cursor:seg.start]))
 
 		cdnURL := fmt.Sprintf(
-			"https://static-cdn.jtvnw.net/emoticons/v2/%s/default/dark/3.0",
+			"https://static-cdn.jtvnw.net/emoticons/v2/%s/default/dark/3.0", //the 3.0 is the meote size
 			seg.id,
 		)
 		styledName := emoteStyle.Render(seg.name)
-		result.WriteString(fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", cdnURL, styledName))
+		result.WriteString(fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", cdnURL, styledName)) // create clickable hyperlik
 
 		cursor = seg.end + 1
 	}

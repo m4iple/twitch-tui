@@ -36,6 +36,7 @@ var (
 	ffzCacheMu sync.RWMutex
 )
 
+// with the channel id we call the ffz api and chache the channel emotes
 func InitFfzCache(channelID string) error {
 	globalResp, err := http.Get("https://api.frankerfacez.com/v1/set/global")
 	if err != nil {
@@ -66,7 +67,7 @@ func InitFfzCache(channelID string) error {
 		key := fmt.Sprintf("%d", id)
 		if set, ok := globalData.Sets[key]; ok {
 			for _, e := range set.Emoticons {
-				if url, ok := e.URLs["2"]; ok {
+				if url, ok := e.URLs["2"]; ok { // the ["2"] is the size of the emote
 					cache[e.Name] = url
 				}
 			}
@@ -76,7 +77,7 @@ func InitFfzCache(channelID string) error {
 	channelSetKey := fmt.Sprintf("%d", roomData.Room.Set)
 	if set, ok := roomData.Sets[channelSetKey]; ok {
 		for _, e := range set.Emoticons {
-			if url, ok := e.URLs["2"]; ok {
+			if url, ok := e.URLs["2"]; ok { // the ["2"] is the size of the emote
 				cache[e.Name] = url
 			}
 		}
@@ -89,6 +90,7 @@ func InitFfzCache(channelID string) error {
 	return nil
 }
 
+// do the sane as the twitch emotes with the cached words
 func addFfzEmotesLink(text string, theme string) string {
 	ffzCacheMu.RLock()
 	cache := ffzCache

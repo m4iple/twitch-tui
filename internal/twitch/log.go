@@ -6,6 +6,7 @@ import (
 	"twitch-tui/internal/config"
 )
 
+// todo rewirte
 func (s *Service) initLogger(cfg config.Config) {
 	if !cfg.Log.Enable {
 		return

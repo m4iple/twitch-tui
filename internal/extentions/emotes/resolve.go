@@ -6,6 +6,7 @@ import (
 	irc "github.com/gempir/go-twitch-irc/v4"
 )
 
+// set all emotes that are enabled for the message
 func ResolveEmotes(content string, emotes []*irc.Emote, cfg config.Config, offset int) string {
 	if len(emotes) > 0 && cfg.Emotes.Twitch.Enable {
 		content = addTwitchEmotesLink(content, emotes, cfg.Emotes.Twitch.Color, offset)

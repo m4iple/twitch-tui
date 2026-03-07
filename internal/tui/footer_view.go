@@ -27,17 +27,14 @@ func (m Model) footerView() string {
 		inputLabel = "Input"
 	}
 
-	chatPart := bracket + styles.Maroon.Render(inputLabel) + closeBracket
-	countPart := bracket + styles.Yellow.Render(fmt.Sprintf("%d", len(m.textInput.Value()))) + styles.Maroon.Render(" / ") + styles.Yellow.Render("500") + closeBracket
+	chatPart := bracket + " " + styles.Maroon.Render(inputLabel) + " " + closeBracket
+	countPart := bracket + " " + styles.Yellow.Render(fmt.Sprintf("%d", len(m.textInput.Value()))) + styles.Maroon.Render(" / ") + styles.Yellow.Render("500") + " " + closeBracket
 
 	dash := styles.Maroon.Render("─")
 	infoLine := chatPart + dash + countPart
 
 	infoLineWidth := lipgloss.Width(infoLine)
-	remainingSpace := m.width - infoLineWidth
-	if remainingSpace < 0 {
-		remainingSpace = 0
-	}
+	remainingSpace := max(m.width-infoLineWidth, 0)
 	separator := styles.Maroon.Render(strings.Repeat("─", remainingSpace))
 
 	infoLineWithSeparator := infoLine + separator

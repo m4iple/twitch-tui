@@ -44,6 +44,7 @@ type Service struct {
 	logFile *os.File
 }
 
+// init new twitch irc connection. first without an user then - when set log ourself in
 func New(cfg config.Config) *Service {
 	s := &Service{
 		client:  twitch.NewAnonymousClient(),
@@ -66,6 +67,7 @@ func New(cfg config.Config) *Service {
 		s.login()
 	}
 
+	// when we have the twitch channel id and the emotes are enabled cache them
 	if s.ChannelID != "" {
 		if cfg.Emotes.SevenTv.Enable {
 			go func() {
@@ -90,7 +92,7 @@ func New(cfg config.Config) *Service {
 		}
 	}
 
-	s.initLogger(cfg)
+	s.initLogger(cfg) // inti the message logger
 
 	return s
 }
@@ -99,6 +101,7 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 	s.cfg = cfg
 }
 
+// gets a random color from the theme
 func (t *Service) randomColor() string {
 	palette := []string{
 		t.cfg.Theme.Lavender,

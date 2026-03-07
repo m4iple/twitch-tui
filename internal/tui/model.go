@@ -16,17 +16,9 @@ type appState int
 type systemMsg string
 type tickMsg struct{}
 
+// theme converted from hex to lipgloss
 type ThemeStyles struct {
-	Crust     lipgloss.Style
-	Mantle    lipgloss.Style
 	Base      lipgloss.Style
-	Surface0  lipgloss.Style
-	Surface1  lipgloss.Style
-	Surface2  lipgloss.Style
-	Overlay0  lipgloss.Style
-	Overlay1  lipgloss.Style
-	Overlay2  lipgloss.Style
-	Subtext0  lipgloss.Style
 	Subtext1  lipgloss.Style
 	Text      lipgloss.Style
 	Lavender  lipgloss.Style
@@ -72,8 +64,8 @@ func New(cfg config.Config) Model {
 	ti.CharLimit = 500
 	ti.Width = 30
 
-	state := stateInputChannel
-	if cfg.Twitch.Channel != "" {
+	state := stateInputChannel    // starting state is Channel select
+	if cfg.Twitch.Channel != "" { // when a channel already in cfg switch to view state
 		state = stateView
 		ti.Blur()
 	}
@@ -89,12 +81,12 @@ func New(cfg config.Config) Model {
 func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		textinput.Blink,
-		waitForSystemMsg(m.twitch.SysChan),
-		tea.Tick(time.Second, func(_ time.Time) tea.Msg { return tickMsg{} }),
+		waitForSystemMsg(m.twitch.SysChan), // listen to the system messages
+		tea.Tick(time.Second, func(_ time.Time) tea.Msg { return tickMsg{} }), // add tick messages - updating the time correctly
 	}
 
 	if m.state == stateView {
-		cmds = append(cmds, m.connectCmd(), waitForChatMsg(m.twitch.MsgChan))
+		cmds = append(cmds, m.connectCmd(), waitForChatMsg(m.twitch.MsgChan)) // listen to the twitch chat messages
 	}
 
 	return tea.Batch(cmds...)
@@ -102,27 +94,28 @@ func (m Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tickMsg:
+	case tickMsg: // tick update
 		return m, tea.Tick(time.Second, func(_ time.Time) tea.Msg { return tickMsg{} })
 
-	case systemMsg:
+	case systemMsg: // print system message
 		m.handleScroll(formatSystemMessage(string(msg)))
 		return m, waitForSystemMsg(m.twitch.SysChan)
 
-	case twitch.ChatMessage:
+	case twitch.ChatMessage: // print chat message
 		m.handleScroll(msg)
 		return m, waitForChatMsg(m.twitch.MsgChan)
 
-	case tea.KeyMsg:
+	case tea.KeyMsg: // user key press
 		return m.handleKey(msg)
 
-	case tea.WindowSizeMsg:
+	case tea.WindowSizeMsg: // update view on window resize
 		m.updateViewport(msg)
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		return m, cmd
 	}
 
+	// print the shortcut commands in the inout and the header (CTRL + J => :join)
 	var tiCmd, vpCmd tea.Cmd
 	m.textInput, tiCmd = m.textInput.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
@@ -131,6 +124,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
+// handle keypresses that are not in the textbox (shortcuts)
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+q":
@@ -157,7 +151,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		return m.handleEnter()
 
-	case "i":
+	case "i": // switch to input state
 		if m.state == stateView {
 			m.state = stateInputChat
 			m.textInput.Focus()
@@ -165,13 +159,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case ":":
+	case ":": // switch to command state
 		if m.state == stateView {
 			m.setCommand(":")
 			return m, nil
 		}
 
-	case "esc":
+	case "esc": // switch form input / command to view state
 		if m.state == stateInputChat || m.state == stateInputCommand {
 			m.state = stateView
 			m.textInput.Blur()
@@ -191,6 +185,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
+// set the input as focused, add the prefill, set the ui state
 func (m *Model) setCommand(prefix string) {
 	m.textInput.Focus()
 	m.textInput.SetValue(prefix)
@@ -198,6 +193,7 @@ func (m *Model) setCommand(prefix string) {
 	m.state = stateInputCommand
 }
 
+// send chat / command
 func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
 	input := strings.TrimSpace(m.textInput.Value())
 
@@ -209,7 +205,7 @@ func (m *Model) handleEnter() (tea.Model, tea.Cmd) {
 	}
 
 	switch m.state {
-	case stateInputChannel:
+	case stateInputChannel: // change the channel and switch to view mode - not on the command but the the starting state
 		if input == "" {
 			return m, nil
 		}
@@ -252,6 +248,7 @@ func (m Model) View() string {
 	)
 }
 
+// handle the auto scroll down - on message - but disable when user scrolls up
 func (m *Model) handleScroll(msg twitch.ChatMessage) {
 	atBottom := m.viewport.AtBottom()
 	m.messages = append(m.messages, msg)
@@ -261,8 +258,10 @@ func (m *Model) handleScroll(msg twitch.ChatMessage) {
 	}
 }
 
+// build the message view
 func (m Model) buildContent() string {
 	var sb strings.Builder
+	// go through all the messages and apply the filter - when avaiable - and then print them
 	for _, msg := range m.messages {
 		if m.filter != "" && !strings.Contains(strings.ToLower(msg.Content), strings.ToLower(m.filter)) {
 			continue
@@ -272,6 +271,7 @@ func (m Model) buildContent() string {
 	return sb.String()
 }
 
+// handle the auto scroll down - on viewport change - but disable when user scrolls up
 func (m *Model) refreshViewport() {
 	atBottom := m.viewport.AtBottom()
 	m.viewport.SetContent(m.buildContent())
@@ -280,6 +280,7 @@ func (m *Model) refreshViewport() {
 	}
 }
 
+// switch the ui state depending on the input - : = command
 func (m *Model) updateInputState() {
 	if m.state == stateInputChat && strings.HasPrefix(strings.TrimSpace(m.textInput.Value()), ":") {
 		m.state = stateInputCommand
@@ -291,6 +292,7 @@ func (m *Model) updateInputState() {
 	}
 }
 
+// init twitch connection
 func (m *Model) connectCmd() tea.Cmd {
 	return func() tea.Msg {
 		m.twitch.Connect()
@@ -298,6 +300,7 @@ func (m *Model) connectCmd() tea.Cmd {
 	}
 }
 
+// init twitch channel switching
 func (m *Model) switchChannelCmd(channel string) tea.Cmd {
 	return func() tea.Msg {
 		if err := m.twitch.SwitchChannel(channel); err != nil {
@@ -307,6 +310,7 @@ func (m *Model) switchChannelCmd(channel string) tea.Cmd {
 	}
 }
 
+// send twicht chat message
 func (m *Model) sendMsgCmd(content string) tea.Cmd {
 	return func() tea.Msg {
 		m.twitch.Say(content)
@@ -319,6 +323,7 @@ func (m *Model) sendMsgCmd(content string) tea.Cmd {
 	}
 }
 
+// on window size change recalculate the viewport size
 func (m *Model) updateViewport(msg tea.WindowSizeMsg) {
 	headerHeight := 3
 	footerHeight := 1
@@ -336,7 +341,7 @@ func (m *Model) updateViewport(msg tea.WindowSizeMsg) {
 		m.viewport.Height = vpHeight
 	}
 
-	m.viewport.GotoBottom()
+	m.refreshViewport()
 }
 
 func waitForSystemMsg(sub chan string) tea.Cmd {
@@ -351,62 +356,10 @@ func waitForChatMsg(sub chan twitch.ChatMessage) tea.Cmd {
 	}
 }
 
-func formatSystemMessage(content string) twitch.ChatMessage {
-	return twitch.ChatMessage{
-		Time:    time.Now(),
-		User:    "System",
-		Flare:   "SYSTEM",
-		Content: content,
-	}
-}
-
-func (m Model) wrapText(text string, width int) string {
-	if width <= 0 {
-		return text
-	}
-
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return text
-	}
-
-	var lines []string
-	var currentLine strings.Builder
-
-	for _, word := range words {
-		wordWidth := lipgloss.Width(word)
-		currentWidth := lipgloss.Width(currentLine.String())
-
-		if currentLine.Len() == 0 {
-			currentLine.WriteString(word)
-		} else if currentWidth+1+wordWidth <= width {
-			currentLine.WriteString(" " + word)
-		} else {
-			lines = append(lines, currentLine.String())
-			currentLine.Reset()
-			currentLine.WriteString(word)
-		}
-	}
-
-	if currentLine.Len() > 0 {
-		lines = append(lines, currentLine.String())
-	}
-
-	return strings.Join(lines, "\n")
-}
-
+// convert cfg theme to lipgloss Theme
 func (m Model) getStyles() ThemeStyles {
 	return ThemeStyles{
-		Crust:     lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Crust)),
-		Mantle:    lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Mantle)),
 		Base:      lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Base)),
-		Surface0:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Surface0)),
-		Surface1:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Surface1)),
-		Surface2:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Surface2)),
-		Overlay0:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Overlay0)),
-		Overlay1:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Overlay1)),
-		Overlay2:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Overlay2)),
-		Subtext0:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Subtext0)),
 		Subtext1:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Subtext1)),
 		Text:      lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text)),
 		Lavender:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Lavender)),
