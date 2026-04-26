@@ -101,6 +101,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleScroll(formatSystemMessage(string(msg)))
 		return m, waitForSystemMsg(m.twitch.SysChan)
 
+	case loginCompleteMsg:
+		if msg.Err != nil {
+			m.handleScroll(formatSystemMessage("login failed: " + msg.Err.Error()))
+			return m, nil
+		}
+
+		m.config.Twitch.User = msg.User
+		m.config.Twitch.Oauth = msg.OAuth
+		m.config.Twitch.Refresh = msg.Refresh
+		m.config.Twitch.ClientID = msg.ClientID
+		m.config.Twitch.UserID = msg.UserID
+		if err := config.UpdateConfig(m.config); err != nil {
+			m.handleScroll(formatSystemMessage("Failed to save config: " + err.Error()))
+		}
+		m.handleScroll(formatSystemMessage("Logged in as " + msg.User))
+		return m, nil
+
 	case twitch.ChatMessage: // print chat message
 		m.handleScroll(msg)
 		return m, waitForChatMsg(m.twitch.MsgChan)

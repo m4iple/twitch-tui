@@ -101,26 +101,10 @@ func (t *Service) Say(message string) {
 }
 
 // exported login used in the login command
-func (t *Service) Login(user, token, refresh string) error {
-	if user == "" {
-		return errors.New("missing user")
-	}
-	if token == "" {
-		return errors.New("missing token")
-	}
-	if refresh == "" {
-		return errors.New("missing refresh token")
+func (t *Service) Login(clientID string) error {
+	if clientID == "" {
+		return errors.New("missing client ID")
 	}
 
-	if t.client != nil {
-		t.client.Disconnect()
-	}
-
-	t.User = user
-	t.token = token
-	t.refreshToken = refresh
-
-	t.login()
-	t.startSession()
-	return nil
+	return t.loginWithDeviceCode(clientID)
 }
