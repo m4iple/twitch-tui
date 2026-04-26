@@ -18,20 +18,21 @@ func (m Model) headerView() string {
 
 	channelLabel := m.twitch.CurrentChannel
 	if m.twitch.ChannelID != "" {
-		channelLabel = fmt.Sprintf("%s (%s)", channelLabel, m.twitch.ChannelID)
+		channelLabel = fmt.Sprintf("%s", channelLabel)
 	}
 	channelPart := bracket + styles.Maroon.Render(" Channel: ") + styles.Green.Render(channelLabel) + styles.Maroon.Render(" ") + closeBracket
 
 	userLabel := m.twitch.User
 	if m.twitch.UserID != "" {
-		userLabel = fmt.Sprintf("%s (%s)", userLabel, m.twitch.UserID)
+		userLabel = fmt.Sprintf("%s", userLabel)
 	}
 	userPart := bracket + styles.Maroon.Render(" User: ") + styles.Yellow.Render(userLabel) + styles.Maroon.Render(" ") + closeBracket
 
-	findLabel := "Find"
+	filter := ""
 	if m.filter != "" {
-		findLabel = fmt.Sprintf("Find %q", m.filter)
+		filter = m.filter
 	}
+	findLabel := fmt.Sprintf("Find %q", filter)
 	findPart := bracket + styles.Maroon.Render(" "+findLabel+" ") + closeBracket
 
 	dash := styles.Maroon.Render("─")

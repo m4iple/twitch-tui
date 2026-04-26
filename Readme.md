@@ -31,7 +31,7 @@ Commands are prefixed with a colon:
   - Usage: `:login [client_id]`
   - If `client_id` is omitted, the app uses the saved `client_id` from config.
   - The app prints a Twitch activation URL + code in system messages; authorize in browser and it completes login automatically.
-  - create a new app in (dev.twitch)[https://dev.twitch.tv/console/apps/create] set return url to something like `http://localhost:3000` and the 'Client Type' to public
+  - create a new app in [dev.twitch](https://dev.twitch.tv/console/apps/create) set return url to something like `http://localhost:3000` and the 'Client Type' to public
   
 - **:join** or **:j** - Switch to a different channel
   - Usage: `:join <channel_name>`
