@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-const defaultRefreshAPI = "https://twitchtokengenerator.com/api/refresh/"
+const defaultRefreshAPI = "https://id.twitch.tv/oauth2/token"
 const configFileName = "config.toml"
 const appDir = "twitch-tui"
 

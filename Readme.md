@@ -18,7 +18,7 @@ Twitch TUI is a command-line application that provides a rich terminal interface
 
 Configuration is managed automatically through `config.toml`:
 
-- **Twitch Settings**: Channel name, OAuth token, and refresh credentials
+- **Twitch Settings**: Channel name, client ID, OAuth token, and refresh token
 - **Theme**: Customizable color palette for the interface
 
 Configuration updates are saved automatically as you use the application.
@@ -27,8 +27,11 @@ Configuration updates are saved automatically as you use the application.
 
 Commands are prefixed with a colon:
 
-- **:login** or **:l** - Authenticate with Twitch
-  - Usage: `:login <username> <oauth_token> <refresh_token>`
+- **:login** or **:l** - Authenticate with Twitch via first-party Device Code flow
+  - Usage: `:login [client_id]`
+  - If `client_id` is omitted, the app uses the saved `client_id` from config.
+  - The app prints a Twitch activation URL + code in system messages; authorize in browser and it completes login automatically.
+  - create a new app in (dev.twitch)[https://dev.twitch.tv/console/apps/create] set return url to something like `http://localhost:3000` and the 'Client Type' to public
   
 - **:join** or **:j** - Switch to a different channel
   - Usage: `:join <channel_name>`

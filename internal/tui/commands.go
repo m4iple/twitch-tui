@@ -20,6 +20,15 @@ type commandDef struct {
 	Handle  commandHandler
 }
 
+type loginCompleteMsg struct {
+	Err      error
+	User     string
+	OAuth    string
+	Refresh  string
+	ClientID string
+	UserID   string
+}
+
 func (m *Model) executeCommand(input string) tea.Cmd {
 	name, args, err := parseCommand(input)
 	if err != nil {
@@ -49,7 +58,7 @@ var commandRegistry = func() map[string]commandDef {
 		{
 			Name:    "login",
 			Aliases: []string{"l"},
-			Usage:   ":login <user> <token> <refresh>",
+			Usage:   ":login [client_id]",
 			Handle:  handleLoginCommand,
 		},
 		{
@@ -112,29 +121,31 @@ func parseCommand(input string) (string, []string, error) {
 
 // calls twitch login and updates the config
 func handleLoginCommand(m *Model, args []string) (tea.Cmd, error) {
-	if len(args) < 3 {
-		return nil, errors.New("Usage: :login <user> <token> <refresh>")
+	if len(args) > 1 {
+		return nil, errors.New("Usage: :login [client_id]")
 	}
 
-	user := args[0]
-	token := args[1]
-	refresh := args[2]
-
-	if err := m.twitch.Login(user, token, refresh); err != nil {
-		return nil, fmt.Errorf("login failed: %v", err)
+	clientID := m.config.Twitch.ClientID
+	if len(args) == 1 {
+		clientID = strings.TrimSpace(args[0])
+	}
+	if clientID == "" {
+		return nil, errors.New("missing client ID. Usage: :login <client_id>")
 	}
 
-	m.config.Twitch.User = user
-	m.config.Twitch.Oauth = token
-	m.config.Twitch.Refresh = refresh
-	m.config.Twitch.UserID = m.twitch.UserID
-	if err := config.UpdateConfig(m.config); err != nil {
-		m.handleScroll(formatSystemMessage(fmt.Sprintf("Failed to save config: %v", err)))
-	}
+	return func() tea.Msg {
+		if err := m.twitch.Login(clientID); err != nil {
+			return loginCompleteMsg{Err: err}
+		}
 
-	m.handleScroll(formatSystemMessage("Logged in as " + user))
-
-	return nil, nil
+		return loginCompleteMsg{
+			User:     m.twitch.User,
+			OAuth:    m.twitch.AccessToken(),
+			Refresh:  m.twitch.RefreshToken(),
+			ClientID: m.twitch.ClientID,
+			UserID:   m.twitch.UserID,
+		}
+	}, nil
 }
 
 // calls the twitch channel connect and update the config - also clear viewport

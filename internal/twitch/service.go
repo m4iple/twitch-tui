@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 	"twitch-tui/internal/config"
 	"twitch-tui/internal/extentions/emotes"
@@ -99,6 +100,14 @@ func New(cfg config.Config) *Service {
 
 func (s *Service) UpdateConfig(cfg config.Config) {
 	s.cfg = cfg
+}
+
+func (s *Service) AccessToken() string {
+	return strings.TrimPrefix(s.token, "oauth:")
+}
+
+func (s *Service) RefreshToken() string {
+	return s.refreshToken
 }
 
 // gets a random color from the theme
